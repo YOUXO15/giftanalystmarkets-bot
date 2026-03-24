@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: giftanalystmarkets-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-gift_analytics}
+      POSTGRES_USER: ${POSTGRES_USER:-gift_analytics_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_strong_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-gift_analytics_user} -d ${POSTGRES_DB:-gift_analytics}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: giftanalystmarkets-bot
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    command: sh -c "python -m alembic upgrade head && python -m src.main"
+
+volumes:
+  postgres_data:
