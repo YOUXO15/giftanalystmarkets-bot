@@ -1,0 +1,1 @@
+"""GiftAnalystMarkets bot package."""
