@@ -17,6 +17,7 @@ class FakeDeal:
     buy_price: Decimal
     net_profit: Decimal | None
     ton_usd_rate: Decimal | None
+    sale_ton_usd_rate: Decimal | None
     currency: Currency
     status: DealStatus
     created_at: datetime
@@ -30,6 +31,7 @@ def test_sum_field_in_ton_converts_mixed_currencies() -> None:
             buy_price=Decimal("10"),
             net_profit=Decimal("2"),
             ton_usd_rate=Decimal("3.10"),
+            sale_ton_usd_rate=Decimal("4.00"),
             currency=Currency.TON,
             status=DealStatus.OPEN,
             created_at=datetime(2026, 3, 1, 12, 0, 0),
@@ -39,6 +41,7 @@ def test_sum_field_in_ton_converts_mixed_currencies() -> None:
             buy_price=Decimal("31"),
             net_profit=Decimal("6.2"),
             ton_usd_rate=Decimal("3.10"),
+            sale_ton_usd_rate=Decimal("6.20"),
             currency=Currency.USD,
             status=DealStatus.CLOSED,
             created_at=datetime(2026, 3, 2, 12, 0, 0),
@@ -46,11 +49,21 @@ def test_sum_field_in_ton_converts_mixed_currencies() -> None:
         ),
     ]
 
-    total_buy = service._sum_field_in_ton(deals, field_name="buy_price", fallback_ton_rate=None)
-    total_profit = service._sum_field_in_ton(deals, field_name="net_profit", fallback_ton_rate=None)
+    total_buy = service._sum_field_in_ton(
+        deals,
+        field_name="buy_price",
+        rate_field_name="ton_usd_rate",
+        fallback_ton_rate=None,
+    )
+    total_profit = service._sum_field_in_ton(
+        deals,
+        field_name="net_profit",
+        rate_field_name="sale_ton_usd_rate",
+        fallback_ton_rate=None,
+    )
 
     assert total_buy == Decimal("20")
-    assert total_profit == Decimal("4")
+    assert total_profit == Decimal("3")
 
 
 def test_sum_field_in_ton_uses_fallback_rate_when_deal_snapshot_missing() -> None:
@@ -60,6 +73,7 @@ def test_sum_field_in_ton_uses_fallback_rate_when_deal_snapshot_missing() -> Non
             buy_price=Decimal("62"),
             net_profit=None,
             ton_usd_rate=None,
+            sale_ton_usd_rate=None,
             currency=Currency.USD,
             status=DealStatus.OPEN,
             created_at=datetime(2026, 3, 1, 12, 0, 0),
@@ -70,6 +84,7 @@ def test_sum_field_in_ton_uses_fallback_rate_when_deal_snapshot_missing() -> Non
     total_buy = service._sum_field_in_ton(
         deals,
         field_name="buy_price",
+        rate_field_name="ton_usd_rate",
         fallback_ton_rate=Decimal("3.10"),
     )
 

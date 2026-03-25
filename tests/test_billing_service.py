@@ -18,7 +18,7 @@ from src.utils.enums import BillingPlanType, Currency, PaymentInvoiceStatus, Sub
 def _build_service() -> BillingService:
     settings_stub = SimpleNamespace(
         is_crypto_pay_configured=False,
-        subscription_intro_price_ton=Decimal("0.1"),
+        subscription_intro_price_ton=Decimal("3"),
         subscription_monthly_price_ton=Decimal("3"),
         subscription_period_days=30,
         crypto_pay_asset=Currency.TON,
@@ -26,7 +26,7 @@ def _build_service() -> BillingService:
     return BillingService(None, settings_stub)  # type: ignore[arg-type]
 
 
-def test_build_quote_uses_discount_for_first_payment() -> None:
+def test_build_quote_uses_regular_price_for_first_payment() -> None:
     service = _build_service()
     subscription = UserSubscription(
         user_id=1,
@@ -37,8 +37,8 @@ def test_build_quote_uses_discount_for_first_payment() -> None:
 
     quote = service._build_quote(subscription)
 
-    assert quote.amount == Decimal("0.1")
-    assert quote.plan_type == BillingPlanType.INTRO
+    assert quote.amount == Decimal("3")
+    assert quote.plan_type == BillingPlanType.MONTHLY
 
 
 def test_build_quote_switches_to_regular_after_first_payment() -> None:
@@ -54,6 +54,41 @@ def test_build_quote_switches_to_regular_after_first_payment() -> None:
 
     assert quote.amount == Decimal("3")
     assert quote.plan_type == BillingPlanType.MONTHLY
+
+
+def test_invoice_match_requires_current_monthly_price() -> None:
+    service = _build_service()
+    quote = service._build_quote(
+        UserSubscription(
+            user_id=1,
+            status=SubscriptionStatus.INACTIVE,
+            discount_consumed=False,
+            first_paid_at=None,
+        )
+    )
+    stale_invoice = PaymentInvoice(
+        user_id=1,
+        provider_invoice_id=100,
+        invoice_hash="hash-100",
+        asset=Currency.TON,
+        amount=Decimal("0.1"),
+        plan_type=BillingPlanType.INTRO,
+        status=PaymentInvoiceStatus.ACTIVE,
+        pay_url="https://pay.example/100",
+    )
+    current_invoice = PaymentInvoice(
+        user_id=1,
+        provider_invoice_id=101,
+        invoice_hash="hash-101",
+        asset=Currency.TON,
+        amount=Decimal("3"),
+        plan_type=BillingPlanType.MONTHLY,
+        status=PaymentInvoiceStatus.ACTIVE,
+        pay_url="https://pay.example/101",
+    )
+
+    assert service._invoice_matches_quote(stale_invoice, quote) is False
+    assert service._invoice_matches_quote(current_invoice, quote) is True
 
 
 def test_activate_subscription_extends_from_current_period_end() -> None:

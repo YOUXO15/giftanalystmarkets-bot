@@ -6,7 +6,7 @@ import asyncio
 from collections import defaultdict
 from typing import Any
 
-from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError, TelegramNetworkError
 from aiogram.types import BufferedInputFile, Message
 
 _LAST_BOT_MESSAGE_ID_BY_CHAT: dict[int, int] = {}
@@ -72,6 +72,6 @@ async def _delete_previous_bot_message(message: Message) -> None:
 
     try:
         await message.bot.delete_message(chat_id=message.chat.id, message_id=last_message_id)
-    except (TelegramBadRequest, TelegramForbiddenError):
+    except (TelegramBadRequest, TelegramForbiddenError, TelegramNetworkError):
         # Ignore if message is too old, already deleted, or chat permissions changed.
         pass

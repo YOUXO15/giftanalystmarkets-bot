@@ -33,6 +33,7 @@ DEFAULT_EXPORT_FIELDS = [
     "item",
     "gift_number",
     "market",
+    "sale_market",
     "buy",
     "sell",
     "fee",
@@ -40,6 +41,7 @@ DEFAULT_EXPORT_FIELDS = [
     "margin",
     "currency",
     "ton_rate",
+    "sale_ton_rate",
     "status",
     "opened_at",
     "closed_at",
@@ -93,9 +95,9 @@ def build_export_query_help_text() -> str:
         "profit=any|positive|negative|zero|non_negative|non_positive\n"
         "days=30\n"
         "limit=100\n"
-        "fields=id,item,gift_number,market,buy,sell,fee,profit,margin,currency,ton_rate,status,opened_at,closed_at,created_at,updated_at,gift_link\n\n"
+        "fields=id,item,gift_number,market,sale_market,buy,sell,fee,profit,margin,currency,ton_rate,sale_ton_rate,status,opened_at,closed_at,created_at,updated_at,gift_link\n\n"
         "Пример:\n"
-        "<code>format=xlsx;status=closed;currency=USD,TON;profit=positive;days=60;fields=id,item,gift_number,market,buy,sell,profit,margin,status</code>\n\n"
+        "<code>format=xlsx;status=closed;currency=USD,TON;profit=positive;days=60;fields=id,item,gift_number,market,sale_market,buy,sell,profit,margin,status</code>\n\n"
         "Для отмены отправь: <code>отмена</code>"
     )
 
@@ -250,7 +252,10 @@ class ExportService:
                 if not deals:
                     return ExportFileResult(
                         success=False,
-                        message="Нет данных для экспорта. Сначала добавь подарок через кнопку «Добавить подарок».",
+                        message=(
+                            "Нет данных для экспорта. Сначала добавь покупку через кнопку "
+                            "«Добавить купленный подарок»."
+                        ),
                     )
 
                 filtered_deals = self._apply_query_filters(deals, active_query)
@@ -442,41 +447,93 @@ class ExportService:
             profit_header = f"Чистая прибыль ({target_currency.value})"
             currency_header = "Валюта отчета"
 
-        def render_ton_rate(deal: Any) -> Decimal | None:
-            return getattr(deal, "ton_usd_rate", None) or ton_rate
+        def render_purchase_ton_rate(deal: Any) -> Decimal | None:
+            return getattr(deal, "ton_usd_rate", None)
 
-        def render_amount(amount: Decimal | None, deal: Any) -> str:
+        def render_sale_ton_rate(deal: Any) -> Decimal | None:
+            return getattr(deal, "sale_ton_usd_rate", None)
+
+        def purchase_rate_for_conversion(deal: Any) -> Decimal | None:
+            return render_purchase_ton_rate(deal) or ton_rate
+
+        def sale_rate_for_conversion(deal: Any) -> Decimal | None:
+            return render_sale_ton_rate(deal) or render_purchase_ton_rate(deal) or ton_rate
+
+        def render_amount(amount: Decimal | None, deal: Any, *, rate: Decimal | None) -> str:
             if target_currency is None:
                 return self._format_nullable_decimal(amount)
             converted = self._convert_amount(
                 amount,
                 source_currency=deal.currency,
                 target_currency=target_currency,
-                ton_rate=render_ton_rate(deal),
+                ton_rate=rate,
             )
             return self._format_nullable_decimal(converted)
+
+        def render_margin(deal: Any) -> str:
+            if target_currency is None:
+                return self._format_margin_percent(deal.net_profit, deal.buy_price)
+
+            converted_profit = self._convert_amount(
+                deal.net_profit,
+                source_currency=deal.currency,
+                target_currency=target_currency,
+                ton_rate=sale_rate_for_conversion(deal),
+            )
+            converted_buy = self._convert_amount(
+                deal.buy_price,
+                source_currency=deal.currency,
+                target_currency=target_currency,
+                ton_rate=purchase_rate_for_conversion(deal),
+            )
+            if converted_profit is not None and converted_buy is not None:
+                return self._format_margin_percent(converted_profit, converted_buy)
+
+            # Margin is dimensionless, so if conversion is unavailable we still
+            # show a meaningful value from the original deal currency.
+            return self._format_margin_percent(deal.net_profit, deal.buy_price)
 
         renderers: dict[str, tuple[str, Any]] = {
             "id": ("ID сделки", lambda deal: deal.external_deal_id),
             "item": ("Предмет", lambda deal: deal.item_name),
             "gift_number": ("Номер", lambda deal: getattr(deal, "gift_number", None) or "—"),
-            "market": ("Маркет", lambda deal: getattr(deal, "marketplace", None) or "—"),
+            "market": ("Маркет покупки", lambda deal: getattr(deal, "marketplace", None) or "—"),
+            "sale_market": (
+                "Маркет продажи",
+                lambda deal: getattr(deal, "sale_marketplace", None) or "—",
+            ),
             "category": ("Категория", lambda deal: deal.category or "—"),
-            "buy": (buy_header, lambda deal: render_amount(deal.buy_price, deal)),
-            "sell": (sell_header, lambda deal: render_amount(deal.sell_price, deal)),
-            "fee": (fee_header, lambda deal: render_amount(deal.fee, deal)),
-            "profit": (profit_header, lambda deal: render_amount(deal.net_profit, deal)),
+            "buy": (
+                buy_header,
+                lambda deal: render_amount(deal.buy_price, deal, rate=purchase_rate_for_conversion(deal)),
+            ),
+            "sell": (
+                sell_header,
+                lambda deal: render_amount(deal.sell_price, deal, rate=sale_rate_for_conversion(deal)),
+            ),
+            "fee": (
+                fee_header,
+                lambda deal: render_amount(deal.fee, deal, rate=sale_rate_for_conversion(deal)),
+            ),
+            "profit": (
+                profit_header,
+                lambda deal: render_amount(deal.net_profit, deal, rate=sale_rate_for_conversion(deal)),
+            ),
             "margin": (
                 "Маржа (%)",
-                lambda deal: self._format_margin_percent(deal.net_profit, deal.buy_price),
+                lambda deal: render_margin(deal),
             ),
             "currency": (
                 currency_header,
                 lambda deal: target_currency.value if target_currency is not None else deal.currency.value,
             ),
             "ton_rate": (
-                "Курс TON (USD)",
-                lambda deal: self._format_nullable_decimal(render_ton_rate(deal)),
+                "Курс TON покупки (USD)",
+                lambda deal: self._format_nullable_decimal(render_purchase_ton_rate(deal)),
+            ),
+            "sale_ton_rate": (
+                "Курс TON продажи (USD)",
+                lambda deal: self._format_nullable_decimal(render_sale_ton_rate(deal)),
             ),
             "status": ("Статус", lambda deal: self._format_status(deal.status.value)),
             "opened_at": ("Дата открытия", lambda deal: self._format_datetime(deal.opened_at)),

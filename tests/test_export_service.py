@@ -22,12 +22,14 @@ class FakeDeal:
     gift_number: str | None
     gift_url: str | None
     marketplace: str | None
+    sale_marketplace: str | None
     category: str | None
     buy_price: Decimal
     sell_price: Decimal | None
     fee: Decimal
     net_profit: Decimal | None
     ton_usd_rate: Decimal | None
+    sale_ton_usd_rate: Decimal | None
     currency: Currency
     status: DealStatus
     opened_at: datetime | None
@@ -45,12 +47,14 @@ def _build_fake_deal() -> FakeDeal:
         gift_number="31151",
         gift_url="https://t.me/nft/rare-gift-box-31151",
         marketplace="PORTALS",
+        sale_marketplace="FRAGMENT",
         category="Gift Box",
         buy_price=Decimal("120.00"),
         sell_price=Decimal("179.00"),
         fee=Decimal("9.50"),
         net_profit=Decimal("49.50"),
         ton_usd_rate=Decimal("3.21"),
+        sale_ton_usd_rate=Decimal("3.45"),
         currency=Currency.USD,
         status=DealStatus.CLOSED,
         opened_at=datetime(2026, 3, 1, 12, 0, 0),
@@ -69,12 +73,14 @@ def _build_ton_fake_deal(*, ton_usd_rate: Decimal | None = Decimal("3.21")) -> F
         gift_number="70001",
         gift_url="https://t.me/nft/ton-deal-70001",
         marketplace="TELEGRAM",
+        sale_marketplace=None,
         category="Collectible",
         buy_price=Decimal("10.00"),
         sell_price=Decimal("20.00"),
         fee=Decimal("1.00"),
         net_profit=Decimal("9.00"),
         ton_usd_rate=ton_usd_rate,
+        sale_ton_usd_rate=Decimal("4.00") if ton_usd_rate is not None else None,
         currency=Currency.TON,
         status=DealStatus.CLOSED,
         opened_at=datetime(2026, 3, 1, 12, 0, 0),
@@ -93,13 +99,18 @@ def test_build_csv_content_contains_manual_tracking_columns() -> None:
     assert "ID сделки" in content
     assert "Rare Gift Box" in content
     assert "31151" in content
+    assert "Маркет покупки" in content
+    assert "Маркет продажи" in content
     assert "PORTALS" in content
+    assert "FRAGMENT" in content
     assert "Ссылка на подарок" in content
     assert "https://t.me/nft/rare-gift-box-31151" in content
     assert "Маржа (%)" in content
     assert "41.25%" in content
-    assert "Курс TON (USD)" in content
+    assert "Курс TON покупки (USD)" in content
+    assert "Курс TON продажи (USD)" in content
     assert "3.21" in content
+    assert "3.45" in content
 
 
 def test_build_xlsx_content_creates_valid_workbook_with_new_columns() -> None:
@@ -115,13 +126,17 @@ def test_build_xlsx_content_creates_valid_workbook_with_new_columns() -> None:
     assert worksheet["B2"].value == "Rare Gift Box"
     assert worksheet["C1"].value == "Номер"
     assert worksheet["C2"].value == "31151"
-    assert worksheet["D1"].value == "Маркет"
+    assert worksheet["D1"].value == "Маркет покупки"
     assert worksheet["D2"].value == "PORTALS"
-    assert worksheet["I1"].value == "Маржа (%)"
-    assert worksheet["I2"].value == "41.25%"
-    assert worksheet["K1"].value == "Курс TON (USD)"
-    assert worksheet["K2"].value == "3.21"
-    assert worksheet["Q1"].value == "Ссылка на подарок"
+    assert worksheet["E1"].value == "Маркет продажи"
+    assert worksheet["E2"].value == "FRAGMENT"
+    assert worksheet["J1"].value == "Маржа (%)"
+    assert worksheet["J2"].value == "41.25%"
+    assert worksheet["L1"].value == "Курс TON покупки (USD)"
+    assert worksheet["L2"].value == "3.21"
+    assert worksheet["M1"].value == "Курс TON продажи (USD)"
+    assert worksheet["M2"].value == "3.45"
+    assert worksheet["S1"].value == "Ссылка на подарок"
 
 
 def test_build_rows_converts_values_using_deal_specific_ton_rate() -> None:
@@ -140,7 +155,7 @@ def test_build_rows_converts_values_using_deal_specific_ton_rate() -> None:
         "Чистая прибыль (RUB)",
         "Валюта отчета",
     ]
-    assert rows[1] == ["2918.18", "5836.36", "291.82", "2626.36", "RUB"]
+    assert rows[1] == ["2918.18", "7272.73", "363.64", "3272.73", "RUB"]
 
 
 def test_build_rows_without_any_ton_rate_marks_amounts_unavailable() -> None:
@@ -158,6 +173,19 @@ def test_build_rows_without_any_ton_rate_marks_amounts_unavailable() -> None:
     assert rows[1][3] == "RUB"
 
 
+def test_build_rows_recalculates_margin_from_displayed_converted_values() -> None:
+    service = ExportService(None)  # type: ignore[arg-type]
+    rows = service._build_export_rows(
+        [_build_fake_deal()],
+        None,
+        selected_fields=["buy", "profit", "margin"],
+        report_currency="TON",
+    )
+
+    assert rows[0] == ["Цена покупки (TON)", "Чистая прибыль (TON)", "Маржа (%)"]
+    assert rows[1] == ["37.38", "14.35", "38.38%"]
+
+
 def test_build_full_export_rows_uses_manual_deal_schema() -> None:
     service = ExportService(None)  # type: ignore[arg-type]
     rows = service.build_full_export_rows([_build_fake_deal()], Decimal("3.21"))
@@ -166,14 +194,16 @@ def test_build_full_export_rows_uses_manual_deal_schema() -> None:
         "ID сделки",
         "Предмет",
         "Номер",
-        "Маркет",
+        "Маркет покупки",
+        "Маркет продажи",
         "Цена покупки",
         "Цена продажи",
         "Комиссия",
         "Чистая прибыль",
         "Маржа (%)",
         "Валюта",
-        "Курс TON (USD)",
+        "Курс TON покупки (USD)",
+        "Курс TON продажи (USD)",
         "Статус",
         "Дата открытия",
         "Дата закрытия",
@@ -184,4 +214,7 @@ def test_build_full_export_rows_uses_manual_deal_schema() -> None:
     assert rows[1][0] == "mock-1"
     assert rows[1][2] == "31151"
     assert rows[1][3] == "PORTALS"
-    assert rows[1][9] == "USD"
+    assert rows[1][4] == "FRAGMENT"
+    assert rows[1][10] == "USD"
+    assert rows[1][11] == "3.21"
+    assert rows[1][12] == "3.45"

@@ -134,8 +134,12 @@ class BillingService:
                 reply_to_main_menu=True,
             )
 
-        if context.latest_invoice is not None and context.latest_invoice.status == PaymentInvoiceStatus.ACTIVE:
-            quote = self._build_quote(context.subscription)
+        quote = self._build_quote(context.subscription)
+        if (
+            context.latest_invoice is not None
+            and context.latest_invoice.status == PaymentInvoiceStatus.ACTIVE
+            and self._invoice_matches_quote(context.latest_invoice, quote)
+        ):
             return BillingActionResult(
                 True,
                 self._build_invoice_ready_text(
@@ -145,8 +149,9 @@ class BillingService:
                     reused=True,
                 ),
             )
+        if context.latest_invoice is not None and context.latest_invoice.status == PaymentInvoiceStatus.ACTIVE:
+            await self._expire_invoice_locally(context.latest_invoice.provider_invoice_id)
 
-        quote = self._build_quote(context.subscription)
         payload = self._build_invoice_payload(context.user.id, quote)
 
         try:
@@ -233,7 +238,10 @@ class BillingService:
                 "Счёт больше не найден локально. Создай новый через кнопку «Оплатить подписку».",
             )
 
-        if latest_invoice.status == PaymentInvoiceStatus.ACTIVE:
+        if latest_invoice.status == PaymentInvoiceStatus.ACTIVE and self._invoice_matches_quote(
+            latest_invoice,
+            quote,
+        ):
             return BillingActionResult(
                 True,
                 self._build_invoice_ready_text(
@@ -241,6 +249,15 @@ class BillingService:
                     quote=quote,
                     invoice=latest_invoice,
                     reused=True,
+                ),
+            )
+        if latest_invoice.status == PaymentInvoiceStatus.ACTIVE:
+            return BillingActionResult(
+                False,
+                (
+                    "<b>Старый счёт больше не актуален</b>\n\n"
+                    "Он был создан по прежнему тарифу. Нажми «Оплатить подписку», "
+                    "и я создам новый счёт по текущей цене."
                 ),
             )
 
@@ -267,21 +284,23 @@ class BillingService:
         return period_start, period_end
 
     def _build_quote(self, subscription: UserSubscription) -> SubscriptionQuote:
-        """Return the next price for a user based on discount usage."""
-
-        if subscription.discount_consumed or subscription.first_paid_at is not None:
-            return SubscriptionQuote(
-                amount=self._settings.subscription_monthly_price_ton,
-                asset=self._settings.crypto_pay_asset,
-                plan_type=BillingPlanType.MONTHLY,
-                title="Ежемесячная подписка",
-            )
+        """Return the current monthly price for a user."""
 
         return SubscriptionQuote(
-            amount=self._settings.subscription_intro_price_ton,
+            amount=self._settings.subscription_monthly_price_ton,
             asset=self._settings.crypto_pay_asset,
-            plan_type=BillingPlanType.INTRO,
-            title="Первый месяц со скидкой 50%",
+            plan_type=BillingPlanType.MONTHLY,
+            title="Ежемесячная подписка",
+        )
+
+    @staticmethod
+    def _invoice_matches_quote(invoice: PaymentInvoice, quote: SubscriptionQuote) -> bool:
+        """Return whether an active invoice still matches the current pricing rules."""
+
+        return (
+            invoice.asset == quote.asset
+            and invoice.plan_type == quote.plan_type
+            and Decimal(str(invoice.amount)) == Decimal(str(quote.amount))
         )
 
     async def _load_context_by_telegram_id(self, telegram_id: int) -> BillingContext | None:
@@ -429,6 +448,19 @@ class BillingService:
 
             return invoice
 
+    async def _expire_invoice_locally(self, provider_invoice_id: int) -> None:
+        """Mark a stale local invoice as expired so it is not reused again."""
+
+        async with self._session_maker() as session:
+            invoice_repo = PaymentInvoiceRepository(session)
+
+            async with session.begin():
+                invoice = await invoice_repo.get_by_provider_invoice_id(provider_invoice_id)
+                if invoice is None or invoice.status != PaymentInvoiceStatus.ACTIVE:
+                    return
+                invoice.status = PaymentInvoiceStatus.EXPIRED
+                invoice.expires_at = self._now()
+
     def _activate_subscription(
         self,
         *,
@@ -506,8 +538,7 @@ class BillingService:
 
         lines.extend(
             [
-                f"Первый месяц: <b>{self._format_amount(self._settings.subscription_intro_price_ton, quote.asset)}</b>",
-                f"Дальше: <b>{self._format_amount(self._settings.subscription_monthly_price_ton, quote.asset)}</b> / "
+                f"Текущий тариф: <b>{self._format_amount(self._settings.subscription_monthly_price_ton, quote.asset)}</b> / "
                 f"{self._settings.subscription_period_days} дней",
                 f"Следующая оплата: <b>{self._format_amount(quote.amount, quote.asset)}</b>",
             ]
@@ -553,11 +584,9 @@ class BillingService:
             "<b>Доступ к аналитике по подписке</b>",
             "",
             "Синхронизация, статистика, сделки, экспорт и курс TON доступны только после оплаты.",
-            f"Сейчас к оплате: <b>{self._format_amount(quote.amount, quote.asset)}</b> "
+            f"Текущий тариф: <b>{self._format_amount(quote.amount, quote.asset)}</b> "
+            f"за {self._settings.subscription_period_days} дней "
             f"({escape(quote.title.lower())}).",
-            f"Следующий тариф после первого платежа: "
-            f"<b>{self._format_amount(self._settings.subscription_monthly_price_ton, quote.asset)}</b> "
-            f"за {self._settings.subscription_period_days} дней.",
         ]
 
         latest_invoice = context.latest_invoice
@@ -617,8 +646,6 @@ class BillingService:
     def _build_invoice_description(self, quote: SubscriptionQuote) -> str:
         """Build invoice description visible in Crypto Bot."""
 
-        if quote.plan_type == BillingPlanType.INTRO:
-            return "GiftAnalystMarkets: первый месяц со скидкой 50%"
         return "GiftAnalystMarkets: ежемесячная подписка"
 
     @staticmethod

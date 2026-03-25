@@ -34,7 +34,7 @@ class DealService:
                 return (
                     "<b>Сделки</b>\n\n"
                     "Сделок пока нет.\n"
-                    "Нажми «Добавить подарок» и отправь ссылку на подарок, чтобы записать первую сделку."
+                    "Нажми «Добавить купленный подарок» и перешли уведомление о покупке, чтобы записать первую сделку."
                 )
 
             lines = ["<b>Последние сделки</b>", ""]
@@ -44,7 +44,9 @@ class DealService:
                     title = f"{title} #{escape(deal.gift_number)}"
                 lines.append(f"• <b>{title}</b>")
                 if deal.marketplace:
-                    lines.append(f"  Маркет: {escape(deal.marketplace)}")
+                    lines.append(f"  Маркет покупки: {escape(deal.marketplace)}")
+                if getattr(deal, "sale_marketplace", None):
+                    lines.append(f"  Маркет продажи: {escape(deal.sale_marketplace)}")
                 status_label = {
                     "open": "открыта",
                     "closed": "закрыта",

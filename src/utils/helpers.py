@@ -7,7 +7,9 @@ from html import escape
 from aiogram.types import BotCommand
 
 
-BUTTON_SYNC = "Добавить подарок"
+BUTTON_ADD_PURCHASE = "Добавить купленный подарок"
+BUTTON_ADD_SALE = "Добавить проданный подарок"
+BUTTON_SYNC = BUTTON_ADD_PURCHASE
 BUTTON_DEALS = "Сделки"
 BUTTON_STATS = "Статистика"
 BUTTON_TON = "Курс TON"
@@ -83,11 +85,20 @@ BUTTON_EXPORT_OPTION_FIELDS_FINANCE = "Финансовый отчет"
 BUTTON_EXPORT_OPTION_FIELDS_TIMELINE = "Хронология"
 
 
+BUTTON_MARKETPLACE_PORTALS = "PORTALS"
+BUTTON_MARKETPLACE_FRAGMENT = "FRAGMENT"
+BUTTON_MARKETPLACE_GETGEMS = "GETGEMS"
+BUTTON_MARKETPLACE_MRKT = "MRKT"
+BUTTON_MARKETPLACE_MARKET = "MARKET"
+BUTTON_MARKETPLACE_TELEGRAM = "TELEGRAM"
+
+
 def get_main_menu_buttons() -> list[list[str]]:
     """Return button labels for the main reply keyboard."""
 
     return [
-        [BUTTON_SYNC],
+        [BUTTON_ADD_PURCHASE],
+        [BUTTON_ADD_SALE],
         [BUTTON_DEALS, BUTTON_STATS],
         [BUTTON_TON, BUTTON_EXPORT],
         [BUTTON_SUBSCRIPTION],
@@ -212,7 +223,15 @@ def get_subscription_menu_buttons() -> list[list[str]]:
 
 
 def get_purchase_flow_buttons() -> list[list[str]]:
-    """Return buttons for the manual purchase flow."""
+    """Return buttons for purchase capture flow."""
+
+    return [
+        [BUTTON_CANCEL, BUTTON_BACK_TO_MENU],
+    ]
+
+
+def get_sale_flow_buttons() -> list[list[str]]:
+    """Return buttons for sale capture flow."""
 
     return [
         [BUTTON_CANCEL, BUTTON_BACK_TO_MENU],
@@ -238,6 +257,17 @@ def get_sale_fee_buttons() -> list[list[str]]:
     ]
 
 
+def get_marketplace_choice_buttons() -> list[list[str]]:
+    """Return buttons for manual marketplace selection."""
+
+    return [
+        [BUTTON_MARKETPLACE_PORTALS, BUTTON_MARKETPLACE_FRAGMENT],
+        [BUTTON_MARKETPLACE_GETGEMS, BUTTON_MARKETPLACE_MRKT],
+        [BUTTON_MARKETPLACE_MARKET, BUTTON_MARKETPLACE_TELEGRAM],
+        [BUTTON_CANCEL, BUTTON_BACK_TO_MENU],
+    ]
+
+
 def get_known_button_texts() -> set[str]:
     """Return a flat set of all known reply button labels."""
 
@@ -255,8 +285,10 @@ def get_known_button_texts() -> set[str]:
         get_export_fields_buttons(),
         get_subscription_menu_buttons(),
         get_purchase_flow_buttons(),
+        get_sale_flow_buttons(),
         get_ton_rate_choice_buttons(),
         get_sale_fee_buttons(),
+        get_marketplace_choice_buttons(),
     ]
     return {button for group in groups for row in group for button in row}
 
@@ -267,7 +299,8 @@ def get_bot_commands() -> list[BotCommand]:
     return [
         BotCommand(command="start", description="Регистрация и главное меню"),
         BotCommand(command="help", description="Справка по боту"),
-        BotCommand(command="sync", description="Добавить подарок"),
+        BotCommand(command="sync", description="Добавить купленный подарок"),
+        BotCommand(command="sale", description="Добавить проданный подарок"),
         BotCommand(command="deals", description="Показать сделки"),
         BotCommand(command="stats", description="Показать статистику"),
         BotCommand(command="ton", description="Показать курс TON"),
@@ -284,15 +317,14 @@ def build_welcome_text(first_name: str | None, is_new_user: bool) -> str:
     title = "Регистрация завершена" if is_new_user else "С возвращением"
     return (
         f"<b>{title}, {safe_name}!</b>\n\n"
-        "Я помогаю вести учет Telegram-подарков: сохраняю покупки по ссылке, "
-        "пытаюсь автоматически фиксировать продажи по уведомлениям маркетплейсов, "
+        "Я помогаю вести учет Telegram-подарков: сохраняю покупки и продажи по уведомлениям маркетплейсов, "
         "считаю статистику и готовлю CSV/XLSX-экспорт.\n\n"
         "Как начать:\n"
         "1. Оплати подписку через кнопку <b>Подписка</b> или команду /pay.\n"
-        "2. Нажми <b>Добавить подарок</b> и отправь ссылку на подарок.\n"
-        "3. Введи цену покупки и при необходимости сохрани курс TON/USD.\n"
-        "4. Когда подарок продастся, просто перешли сюда уведомление о продаже.\n\n"
-        "Подписка работает так: <b>0.1 TON</b> за первый месяц, затем <b>3 TON</b> каждые 30 дней."
+        "2. Нажми <b>Добавить купленный подарок</b> и перешли уведомление о покупке от маркетплейса.\n"
+        "3. Если в уведомлении нет цены, я сам попрошу ее и предложу сохранить курс TON/USD.\n"
+        "4. Когда подарок продастся, нажми <b>Добавить проданный подарок</b> и перешли уведомление о продаже.\n\n"
+        "Подписка стоит <b>3 TON</b> за каждые 30 дней доступа."
     )
 
 
@@ -303,19 +335,22 @@ def build_help_text() -> str:
         "<b>Что умеет бот</b>\n"
         "/start - регистрация и открытие главного меню\n"
         "/help - показать эту справку\n"
-        "/sync - добавить подарок вручную\n"
-        "/deals - последние сделки из локальной БД\n"
+        "/sync - добавить купленный подарок\n"
+        "/sale - добавить проданный подарок\n"
+        "/deals - последние сделки\n"
         "/stats - краткая статистика по сделкам\n"
         "/ton - курс TON\n"
         "/export - экспорт в CSV/XLSX с конструктором параметров\n"
         "/pay - подписка и создание счета на оплату\n"
         "/settings - пользовательские настройки\n\n"
-        "<b>Новый поток учета</b>\n"
-        "Добавить подарок: отправляешь ссылку на подарок, потом цену покупки.\n"
-        "Продажа: пересылаешь текстовое уведомление маркетплейса, бот пытается найти открытую сделку и закрыть её.\n\n"
+        "<b>Покупка</b>\n"
+        "Нажми <b>Добавить купленный подарок</b> и перешли уведомление о покупке от маркетплейса. "
+        "Я попробую сам определить название, номер подарка, цену и маркет. Если цены нет, спрошу ее отдельно.\n\n"
+        "<b>Продажа</b>\n"
+        "Нажми <b>Добавить проданный подарок</b> и перешли уведомление о продаже. "
+        "Я найду открытую покупку, при необходимости попрошу сумму продажи и комиссию, а затем закрою сделку.\n\n"
         "<b>Подписка</b>\n"
-        "Пробного периода нет. Первый месяц стоит <b>0.1 TON</b>, затем действует базовый тариф "
-        "<b>3 TON</b> за 30 дней доступа."
+        "Пробного периода нет. Базовый тариф составляет <b>3 TON</b> за 30 дней доступа."
     )
 
 

@@ -29,12 +29,14 @@ class Deal(TimestampMixin, Base):
     gift_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
     gift_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     marketplace: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    sale_marketplace: Mapped[str | None] = mapped_column(String(255), nullable=True)
     category: Mapped[str | None] = mapped_column(String(255), nullable=True)
     buy_price: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False)
     sell_price: Mapped[Decimal | None] = mapped_column(Numeric(18, 8), nullable=True)
     fee: Mapped[Decimal] = mapped_column(Numeric(18, 8), default=Decimal("0"), nullable=False)
     net_profit: Mapped[Decimal | None] = mapped_column(Numeric(18, 8), nullable=True)
     ton_usd_rate: Mapped[Decimal | None] = mapped_column(Numeric(18, 8), nullable=True)
+    sale_ton_usd_rate: Mapped[Decimal | None] = mapped_column(Numeric(18, 8), nullable=True)
     currency: Mapped[Currency] = mapped_column(
         SAEnum(
             Currency,

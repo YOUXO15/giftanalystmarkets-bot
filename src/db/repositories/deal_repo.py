@@ -120,11 +120,14 @@ class DealRepository(BaseRepository[Deal]):
                     external_deal_id=external_deal_id,
                     item_name=str(payload.get("item_name") or "Unknown item"),
                     category=_nullable_str(payload.get("category")),
+                    sale_marketplace=_nullable_str(payload.get("sale_marketplace")),
                     buy_price=_to_decimal(payload.get("buy_price"), default="0"),
                     sell_price=_to_nullable_decimal(payload.get("sell_price")),
                     fee=_to_decimal(payload.get("fee"), default="0"),
                     net_profit=_to_nullable_decimal(payload.get("net_profit")),
                     currency=_to_currency(payload.get("currency")),
+                    ton_usd_rate=_to_nullable_decimal(payload.get("ton_usd_rate")),
+                    sale_ton_usd_rate=_to_nullable_decimal(payload.get("sale_ton_usd_rate")),
                     status=_to_status(payload.get("status")),
                     opened_at=_to_datetime(payload.get("opened_at")),
                     closed_at=_to_datetime(payload.get("closed_at")),
@@ -133,11 +136,14 @@ class DealRepository(BaseRepository[Deal]):
             else:
                 deal.item_name = str(payload.get("item_name") or deal.item_name)
                 deal.category = _nullable_str(payload.get("category"))
+                deal.sale_marketplace = _nullable_str(payload.get("sale_marketplace"))
                 deal.buy_price = _to_decimal(payload.get("buy_price"), default=str(deal.buy_price))
                 deal.sell_price = _to_nullable_decimal(payload.get("sell_price"))
                 deal.fee = _to_decimal(payload.get("fee"), default=str(deal.fee))
                 deal.net_profit = _to_nullable_decimal(payload.get("net_profit"))
                 deal.currency = _to_currency(payload.get("currency"))
+                deal.ton_usd_rate = _to_nullable_decimal(payload.get("ton_usd_rate"))
+                deal.sale_ton_usd_rate = _to_nullable_decimal(payload.get("sale_ton_usd_rate"))
                 deal.status = _to_status(payload.get("status"))
                 deal.opened_at = _to_datetime(payload.get("opened_at"))
                 deal.closed_at = _to_datetime(payload.get("closed_at"))
@@ -153,7 +159,7 @@ class DealRepository(BaseRepository[Deal]):
         external_deal_id: str,
         item_name: str,
         gift_number: str | None,
-        gift_url: str,
+        gift_url: str | None,
         marketplace: str | None,
         buy_price: Decimal,
         currency: Currency,
@@ -169,12 +175,14 @@ class DealRepository(BaseRepository[Deal]):
             gift_number=gift_number,
             gift_url=gift_url,
             marketplace=marketplace,
+            sale_marketplace=None,
             category=None,
             buy_price=buy_price,
             sell_price=None,
             fee=Decimal("0"),
             net_profit=None,
             ton_usd_rate=ton_usd_rate,
+            sale_ton_usd_rate=None,
             currency=currency,
             status=DealStatus.OPEN,
             opened_at=opened_at,

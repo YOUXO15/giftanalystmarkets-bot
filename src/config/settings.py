@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     crypto_pay_asset: Currency = Field(Currency.TON, validation_alias="CRYPTO_PAY_ASSET")
     crypto_pay_invoice_expires_in: int = Field(3600, validation_alias="CRYPTO_PAY_INVOICE_EXPIRES_IN")
     subscription_intro_price_ton: Decimal = Field(
-        Decimal("0.1"),
+        Decimal("3"),
         validation_alias="SUBSCRIPTION_INTRO_PRICE_TON",
     )
     subscription_monthly_price_ton: Decimal = Field(

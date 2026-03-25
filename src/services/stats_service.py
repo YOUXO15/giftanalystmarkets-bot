@@ -45,11 +45,13 @@ class StatsService:
             total_buy_volume = self._sum_field_in_ton(
                 deals,
                 field_name="buy_price",
+                rate_field_name="ton_usd_rate",
                 fallback_ton_rate=fallback_ton_rate,
             )
             total_net_profit = self._sum_field_in_ton(
                 deals,
                 field_name="net_profit",
+                rate_field_name="sale_ton_usd_rate",
                 fallback_ton_rate=fallback_ton_rate,
             )
 
@@ -73,6 +75,7 @@ class StatsService:
         deals: list[Any],
         *,
         field_name: str,
+        rate_field_name: str,
         fallback_ton_rate: Decimal | None,
     ) -> Decimal | None:
         """Sum a numeric deal field in TON using per-deal or fallback conversion rates."""
@@ -91,7 +94,11 @@ class StatsService:
             converted = convert_amount_to_ton(
                 amount,
                 source_currency=deal.currency,
-                ton_usd_rate=getattr(deal, "ton_usd_rate", None) or fallback_ton_rate,
+                ton_usd_rate=(
+                    getattr(deal, rate_field_name, None)
+                    or getattr(deal, "ton_usd_rate", None)
+                    or fallback_ton_rate
+                ),
                 quantize_to=None,
             )
             if converted is None:
