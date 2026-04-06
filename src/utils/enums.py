@@ -31,6 +31,14 @@ class Currency(StrEnum):
     USDT = "USDT"
 
 
+class Language(StrEnum):
+    """Supported interface languages."""
+
+    RU = "ru"
+    EN = "en"
+    ZH = "zh"
+
+
 class ExportFormat(StrEnum):
     """Supported local file export formats."""
 
@@ -59,3 +67,20 @@ class BillingPlanType(StrEnum):
 
     INTRO = "intro"
     MONTHLY = "monthly"
+
+
+class ReferralTransactionType(StrEnum):
+    """Supported internal referral balance transaction kinds."""
+
+    REWARD = "reward"
+    SUBSCRIPTION_PAYMENT = "subscription_payment"
+    GIFT_SUBSCRIPTION = "gift_subscription"
+    WITHDRAWAL_REQUEST = "withdrawal_request"
+
+
+class WithdrawalStatus(StrEnum):
+    """Lifecycle state for user withdrawal requests."""
+
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"

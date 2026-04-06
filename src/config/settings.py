@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     app_name: str = "GiftAnalystMarkets"
     app_env: str = Field("development", validation_alias="APP_ENV")
     log_level: str = Field("INFO", validation_alias="LOG_LEVEL")
+    bot_username: str = Field("", validation_alias="BOT_USERNAME")
     bot_token: SecretStr = Field(..., validation_alias="BOT_TOKEN")
     bot_polling_timeout: int = Field(30, validation_alias="BOT_POLLING_TIMEOUT")
     database_url: str = Field(..., validation_alias="DATABASE_URL")
@@ -57,6 +58,23 @@ class Settings(BaseSettings):
         validation_alias="SUBSCRIPTION_MONTHLY_PRICE_TON",
     )
     subscription_period_days: int = Field(30, validation_alias="SUBSCRIPTION_PERIOD_DAYS")
+    referral_base_percent: Decimal = Field(Decimal("10"), validation_alias="REFERRAL_BASE_PERCENT")
+    referral_percent_after_level_1: Decimal = Field(
+        Decimal("12"),
+        validation_alias="REFERRAL_PERCENT_AFTER_LEVEL_1",
+    )
+    referral_percent_after_level_2: Decimal = Field(
+        Decimal("13"),
+        validation_alias="REFERRAL_PERCENT_AFTER_LEVEL_2",
+    )
+    referral_percent_after_level_3: Decimal = Field(
+        Decimal("15"),
+        validation_alias="REFERRAL_PERCENT_AFTER_LEVEL_3",
+    )
+    referral_level_1_threshold: int = Field(3, validation_alias="REFERRAL_LEVEL_1_THRESHOLD")
+    referral_level_2_threshold: int = Field(10, validation_alias="REFERRAL_LEVEL_2_THRESHOLD")
+    referral_level_3_threshold: int = Field(25, validation_alias="REFERRAL_LEVEL_3_THRESHOLD")
+    referral_withdraw_min_ton: Decimal = Field(Decimal("1"), validation_alias="REFERRAL_WITHDRAW_MIN_TON")
     daily_export_limit: int = Field(25, validation_alias="DAILY_EXPORT_LIMIT")
     business_timezone: str = Field("Europe/Moscow", validation_alias="BUSINESS_TIMEZONE")
     http_timeout_seconds: float = Field(15.0, validation_alias="HTTP_TIMEOUT_SECONDS")

@@ -13,9 +13,12 @@ if TYPE_CHECKING:
     from src.db.models.deal import Deal
     from src.db.models.export_log import ExportLog
     from src.db.models.payment_invoice import PaymentInvoice
+    from src.db.models.referral_profile import ReferralProfile
+    from src.db.models.referral_transaction import ReferralTransaction
     from src.db.models.sync_log import SyncLog
     from src.db.models.user_settings import UserSettings
     from src.db.models.user_subscription import UserSubscription
+    from src.db.models.withdrawal_request import WithdrawalRequest
 
 
 class User(TimestampMixin, Base):
@@ -47,5 +50,21 @@ class User(TimestampMixin, Base):
     payment_invoices: Mapped[list["PaymentInvoice"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
+    )
+    referral_profile: Mapped["ReferralProfile | None"] = relationship(
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+        foreign_keys="ReferralProfile.user_id",
+    )
+    referral_transactions: Mapped[list["ReferralTransaction"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        foreign_keys="ReferralTransaction.user_id",
+    )
+    withdrawal_requests: Mapped[list["WithdrawalRequest"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        foreign_keys="WithdrawalRequest.user_id",
     )
     sync_logs: Mapped[list["SyncLog"]] = relationship(back_populates="user", cascade="all, delete-orphan")

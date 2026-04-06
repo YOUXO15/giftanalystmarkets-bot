@@ -9,6 +9,7 @@ from src.bot.keyboards.subscription_menu import get_subscription_menu_keyboard
 from src.bot.message_cleanup import replace_tracked_text
 from src.config.settings import Settings
 from src.services.billing_service import BillingService
+from src.services.user_service import UserService
 
 
 async def ensure_paid_access(
@@ -26,9 +27,14 @@ async def ensure_paid_access(
     if access.allowed:
         return True
 
+    user_service = UserService(session_maker)
+    language = await user_service.get_user_language(
+        message.from_user.id,
+        fallback_telegram_language=message.from_user.language_code,
+    )
     await replace_tracked_text(
         message,
         access.message,
-        reply_markup=get_subscription_menu_keyboard(),
+        reply_markup=get_subscription_menu_keyboard(language),
     )
     return False

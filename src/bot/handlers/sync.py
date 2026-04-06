@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime, timezone
 from decimal import Decimal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from aiogram import F, Router
 from aiogram.enums import MessageEntityType
@@ -24,6 +25,7 @@ from src.bot.message_cleanup import replace_tracked_text
 from src.bot.states.trade_capture import TradeCaptureStates
 from src.bot.subscription_guard import ensure_paid_access
 from src.config.settings import Settings
+from src.services.user_service import UserService
 from src.services.trade_capture_service import (
     GiftLinkPayload,
     PurchasePricePayload,
@@ -32,25 +34,22 @@ from src.services.trade_capture_service import (
     SaleNotificationPayload,
     TradeCaptureService,
 )
-from src.utils.enums import Currency
+from src.utils.enums import Currency, Language
 from src.utils.helpers import (
-    BUTTON_ADD_PURCHASE,
-    BUTTON_ADD_SALE,
     BUTTON_BACK_TO_MENU,
     BUTTON_CANCEL,
     BUTTON_RATE_DATE,
     BUTTON_RATE_SKIP,
     BUTTON_RATE_TODAY,
     BUTTON_SALE_FEE_SKIP,
-    BUTTON_SYNC,
 )
+from src.utils.i18n import button_variants
 
 router = Router(name="sync")
 
 
 @router.message(Command("sync"))
-@router.message(F.text == BUTTON_SYNC)
-@router.message(F.text == BUTTON_ADD_PURCHASE)
+@router.message(F.text.in_(button_variants("add_purchase")))
 async def purchase_command(
     message: Message,
     state: FSMContext,
@@ -75,7 +74,7 @@ async def purchase_command(
 
 
 @router.message(Command("sale"))
-@router.message(F.text == BUTTON_ADD_SALE)
+@router.message(F.text.in_(button_variants("add_sale")))
 async def sale_command(
     message: Message,
     state: FSMContext,
@@ -143,14 +142,18 @@ async def sale_command(
     F.text.in_({BUTTON_CANCEL, BUTTON_BACK_TO_MENU}),
     TradeCaptureStates.waiting_for_sale_fee,
 )
-async def cancel_capture_flow(message: Message, state: FSMContext) -> None:
+async def cancel_capture_flow(
+    message: Message,
+    state: FSMContext,
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
     """Cancel the current capture flow and return user to the main menu."""
 
     await state.clear()
     await replace_tracked_text(
         message,
         "Текущий сценарий остановлен.",
-        reply_markup=get_main_menu_keyboard(),
+        reply_markup=get_main_menu_keyboard(await _resolve_language_for_user(message, session_maker)),
     )
 
 
@@ -239,7 +242,7 @@ async def capture_purchase_price_step(
         await replace_tracked_text(
             message,
             "Данные о покупке потерялись. Нажми «Добавить купленный подарок» и начни заново.",
-            reply_markup=get_main_menu_keyboard(),
+            reply_markup=get_main_menu_keyboard(await _resolve_language_for_user(message, session_maker)),
         )
         return
 
@@ -281,7 +284,7 @@ async def capture_purchase_marketplace_step(
         await replace_tracked_text(
             message,
             "Данные покупки потерялись. Нажми «Добавить купленный подарок» и начни заново.",
-            reply_markup=get_main_menu_keyboard(),
+            reply_markup=get_main_menu_keyboard(await _resolve_language_for_user(message, session_maker)),
         )
         return
 
@@ -328,6 +331,7 @@ async def capture_rate_today_step(
     """Fetch current TON rate and finalize the purchase."""
 
     service = TradeCaptureService(session_maker, settings)
+    await state.update_data(purchase_opened_at=_now_in_utc(settings).isoformat())
     rate_result = await service.fetch_today_ton_rate()
     if not rate_result.success:
         await replace_tracked_text(
@@ -409,6 +413,14 @@ async def capture_rate_date_step(
         return
 
     service = TradeCaptureService(session_maker, settings)
+    data = await state.get_data()
+    await state.update_data(
+        purchase_opened_at=_merge_selected_date_with_event_time(
+            selected_date=selected_date,
+            current_event=_deserialize_datetime(data, "purchase_opened_at"),
+            settings=settings,
+        ).isoformat()
+    )
     rate_result = await service.fetch_ton_rate_for_date(selected_date)
     if not rate_result.success:
         await replace_tracked_text(
@@ -520,7 +532,7 @@ async def capture_sale_price_step(
         await replace_tracked_text(
             message,
             "Данные о продаже потерялись. Нажми «Добавить проданный подарок» и начни заново.",
-            reply_markup=get_main_menu_keyboard(),
+            reply_markup=get_main_menu_keyboard(await _resolve_language_for_user(message, session_maker)),
         )
         return
 
@@ -572,7 +584,7 @@ async def capture_sale_marketplace_step(
         await replace_tracked_text(
             message,
             "Данные о продаже потерялись. Нажми «Добавить проданный подарок» и начни заново.",
-            reply_markup=get_main_menu_keyboard(),
+            reply_markup=get_main_menu_keyboard(await _resolve_language_for_user(message, session_maker)),
         )
         return
 
@@ -634,7 +646,7 @@ async def capture_sale_fee_skip_step(
         await replace_tracked_text(
             message,
             "Данные о продаже потерялись. Нажми «Добавить проданный подарок» и начни заново.",
-            reply_markup=get_main_menu_keyboard(),
+            reply_markup=get_main_menu_keyboard(await _resolve_language_for_user(message, session_maker)),
         )
         return
 
@@ -661,6 +673,7 @@ async def capture_sale_rate_today_step(
     """Fetch current TON rate and continue sale capture."""
 
     service = TradeCaptureService(session_maker, settings)
+    await state.update_data(sale_closed_at=_now_in_utc(settings).isoformat())
     rate_result = await service.fetch_today_ton_rate()
     if not rate_result.success:
         await replace_tracked_text(
@@ -673,6 +686,7 @@ async def capture_sale_rate_today_step(
     await _move_sale_to_fee_step(
         message,
         state,
+        session_maker=session_maker,
         sale_ton_usd_rate=rate_result.rate,
     )
 
@@ -690,12 +704,17 @@ async def capture_sale_rate_date_prompt(message: Message, state: FSMContext) -> 
 
 
 @router.message(TradeCaptureStates.waiting_for_sale_rate_choice, F.text == BUTTON_RATE_SKIP)
-async def capture_sale_rate_skip_step(message: Message, state: FSMContext) -> None:
+async def capture_sale_rate_skip_step(
+    message: Message,
+    state: FSMContext,
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
     """Continue sale capture without a TON-rate snapshot."""
 
     await _move_sale_to_fee_step(
         message,
         state,
+        session_maker=session_maker,
         sale_ton_usd_rate=None,
     )
 
@@ -731,6 +750,14 @@ async def capture_sale_rate_date_step(
         return
 
     service = TradeCaptureService(session_maker, settings)
+    data = await state.get_data()
+    await state.update_data(
+        sale_closed_at=_merge_selected_date_with_event_time(
+            selected_date=selected_date,
+            current_event=_deserialize_datetime(data, "sale_closed_at"),
+            settings=settings,
+        ).isoformat()
+    )
     rate_result = await service.fetch_ton_rate_for_date(selected_date)
     if not rate_result.success:
         await replace_tracked_text(
@@ -743,6 +770,7 @@ async def capture_sale_rate_date_step(
     await _move_sale_to_fee_step(
         message,
         state,
+        session_maker=session_maker,
         sale_ton_usd_rate=rate_result.rate,
     )
 
@@ -763,7 +791,7 @@ async def capture_sale_fee_value_step(
         await replace_tracked_text(
             message,
             "Данные о продаже потерялись. Нажми «Добавить проданный подарок» и начни заново.",
-            reply_markup=get_main_menu_keyboard(),
+            reply_markup=get_main_menu_keyboard(await _resolve_language_for_user(message, session_maker)),
         )
         return
 
@@ -815,7 +843,7 @@ async def _finalize_purchase(
         await replace_tracked_text(
             message,
             "Данные покупки потерялись. Нажми «Добавить купленный подарок» и начни заново.",
-            reply_markup=get_main_menu_keyboard(),
+            reply_markup=get_main_menu_keyboard(await _resolve_language_for_user(message, session_maker)),
         )
         return
 
@@ -832,7 +860,7 @@ async def _finalize_purchase(
     await replace_tracked_text(
         message,
         result.message,
-        reply_markup=get_main_menu_keyboard(),
+        reply_markup=get_main_menu_keyboard(await _resolve_language_for_user(message, session_maker)),
     )
 
 
@@ -857,7 +885,7 @@ async def _prepare_sale_payload(
         await replace_tracked_text(
             message,
             prepared.message,
-            reply_markup=get_main_menu_keyboard(),
+            reply_markup=get_main_menu_keyboard(await _resolve_language_for_user(message, session_maker)),
         )
         return
 
@@ -905,7 +933,7 @@ async def _finalize_sale(
     )
     if result.success:
         await state.clear()
-        reply_markup = get_main_menu_keyboard()
+        reply_markup = get_main_menu_keyboard(await _resolve_language_for_user(message, session_maker))
     elif result.retry_stage == "sale_rate":
         await state.set_state(TradeCaptureStates.waiting_for_sale_rate_choice)
         reply_markup = get_ton_rate_choice_keyboard()
@@ -923,6 +951,7 @@ async def _move_sale_to_fee_step(
     message: Message,
     state: FSMContext,
     *,
+    session_maker: async_sessionmaker[AsyncSession],
     sale_ton_usd_rate: Decimal | None,
 ) -> None:
     """Persist sale rate choice in FSM and move to commission input."""
@@ -934,7 +963,7 @@ async def _move_sale_to_fee_step(
         await replace_tracked_text(
             message,
             "Данные о продаже потерялись. Нажми «Добавить проданный подарок» и начни заново.",
-            reply_markup=get_main_menu_keyboard(),
+            reply_markup=get_main_menu_keyboard(await _resolve_language_for_user(message, session_maker)),
         )
         return
 
@@ -945,6 +974,22 @@ async def _move_sale_to_fee_step(
         message,
         sale_data.get("fee_prompt") or "Теперь отправь комиссию продажи.",
         reply_markup=get_sale_fee_keyboard(),
+    )
+
+
+async def _resolve_language_for_user(
+    message: Message,
+    session_maker: async_sessionmaker[AsyncSession],
+) -> Language:
+    """Resolve preferred UI language for current user."""
+
+    if message.from_user is None:
+        return Language.RU
+
+    user_service = UserService(session_maker)
+    return await user_service.get_user_language(
+        message.from_user.id,
+        fallback_telegram_language=message.from_user.language_code,
     )
 
 
@@ -1003,6 +1048,34 @@ def _resolve_event_datetime(message: Message) -> datetime:
     origin = getattr(message, "forward_origin", None)
     origin_date = getattr(origin, "date", None) if origin is not None else None
     return origin_date or message.date
+
+
+def _now_in_utc(settings: Settings) -> datetime:
+    """Return current timestamp normalized to UTC using business timezone when possible."""
+
+    timezone_name = settings.business_timezone
+    try:
+        return datetime.now(ZoneInfo(timezone_name)).astimezone(timezone.utc)
+    except ZoneInfoNotFoundError:
+        return datetime.now(timezone.utc)
+
+
+def _merge_selected_date_with_event_time(
+    *,
+    selected_date: date,
+    current_event: datetime | None,
+    settings: Settings,
+) -> datetime:
+    """Apply selected calendar date while preserving event time component."""
+
+    base = current_event or _now_in_utc(settings)
+    if base.tzinfo is None:
+        base = base.replace(tzinfo=timezone.utc)
+    return base.replace(
+        year=selected_date.year,
+        month=selected_date.month,
+        day=selected_date.day,
+    )
 
 
 def _serialize_gift(payload: GiftLinkPayload) -> dict[str, str | None]:

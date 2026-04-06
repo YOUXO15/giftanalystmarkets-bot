@@ -12,7 +12,8 @@ from src.db.models.user_subscription import UserSubscription
 from src.db.repositories.settings_repo import SettingsRepository
 from src.db.repositories.subscription_repo import SubscriptionRepository
 from src.db.repositories.user_repo import UserRepository
-from src.utils.formatters import format_bool_flag
+from src.utils.enums import Language
+from src.utils.i18n import language_from_telegram_code, t
 from src.utils.helpers import build_registration_required_text
 
 
@@ -37,6 +38,7 @@ class UserService:
         telegram_id: int,
         username: str | None,
         first_name: str | None,
+        telegram_language_code: str | None = None,
     ) -> UserRegistrationResult:
         """Create a user and default settings if they do not exist yet."""
 
@@ -55,7 +57,10 @@ class UserService:
 
                 settings = await settings_repo.get_by_user_id(user.id)
                 if settings is None:
-                    settings = await settings_repo.create_default(user.id)
+                    settings = await settings_repo.create_default(
+                        user.id,
+                        preferred_language=language_from_telegram_code(telegram_language_code),
+                    )
 
                 subscription = await subscription_repo.get_by_user_id(user.id)
                 if subscription is None:
@@ -75,9 +80,57 @@ class UserService:
             user_repo = UserRepository(session)
             return await user_repo.get_by_telegram_id(telegram_id)
 
-    async def build_settings_overview(self, telegram_id: int) -> str:
+    async def get_user_language(
+        self,
+        telegram_id: int,
+        *,
+        fallback_telegram_language: str | None = None,
+    ) -> Language:
+        """Resolve user's preferred language from settings."""
+
+        fallback = language_from_telegram_code(fallback_telegram_language)
+        async with self._session_maker() as session:
+            user_repo = UserRepository(session)
+            settings_repo = SettingsRepository(session)
+
+            user = await user_repo.get_by_telegram_id(telegram_id)
+            if user is None:
+                return fallback
+
+            settings = await settings_repo.get_by_user_id(user.id)
+            if settings is None:
+                return fallback
+
+            return settings.preferred_language
+
+    async def update_user_language(self, telegram_id: int, language: Language) -> bool:
+        """Persist selected interface language for a user."""
+
+        async with self._session_maker() as session:
+            user_repo = UserRepository(session)
+            settings_repo = SettingsRepository(session)
+
+            async with session.begin():
+                user = await user_repo.get_by_telegram_id(telegram_id)
+                if user is None:
+                    return False
+
+                settings = await settings_repo.get_by_user_id(user.id)
+                if settings is None:
+                    settings = await settings_repo.create_default(user.id, preferred_language=language)
+                else:
+                    await settings_repo.update_language(settings, language)
+            return True
+
+    async def build_settings_overview(
+        self,
+        telegram_id: int,
+        *,
+        fallback_telegram_language: str | None = None,
+    ) -> str:
         """Build a user-facing settings overview message."""
 
+        fallback = language_from_telegram_code(fallback_telegram_language)
         async with self._session_maker() as session:
             user_repo = UserRepository(session)
             settings_repo = SettingsRepository(session)
@@ -85,28 +138,31 @@ class UserService:
 
             user = await user_repo.get_by_telegram_id(telegram_id)
             if user is None:
-                return build_registration_required_text()
+                return build_registration_required_text(language=fallback)
 
             settings = await settings_repo.get_by_user_id(user.id)
             if settings is None:
-                return "Настройки не найдены. Выполни /start, чтобы инициализировать профиль."
+                return t("settings_not_found", fallback)
 
+            language = settings.preferred_language
             subscription = await subscription_repo.get_by_user_id(user.id)
-            subscription_status = "не активирована"
+            subscription_status = t("settings_subscription_inactive", language)
             if subscription is not None and subscription.current_period_ends_at is not None:
                 status_label = {
-                    "active": "активна",
-                    "expired": "истекла",
-                    "inactive": "не активирована",
+                    "active": t("settings_subscription_active", language),
+                    "expired": t("settings_subscription_expired", language),
+                    "inactive": t("settings_subscription_inactive", language),
                 }.get(subscription.status.value, subscription.status.value)
-                subscription_status = (
-                    f"{status_label} до {subscription.current_period_ends_at.strftime('%d.%m.%Y %H:%M UTC')}"
+                subscription_status = t(
+                    "settings_subscription_until",
+                    language,
+                    status=status_label,
+                    date=subscription.current_period_ends_at.strftime("%d.%m.%Y %H:%M UTC"),
                 )
 
             return (
-                "<b>Настройки пользователя</b>\n\n"
-                f"Уведомления: {format_bool_flag(settings.notifications_enabled)}\n"
-                f"Автосинхронизация: {format_bool_flag(settings.auto_sync_enabled)}\n"
-                f"Валюта отчётов: {settings.report_currency.value}\n"
-                f"Подписка: {subscription_status}"
+                f"{t('settings_title', language)}\n\n"
+                f"{t('settings_label_currency', language)}: {settings.report_currency.value}\n"
+                f"{t('settings_label_language', language)}: {language.value.upper()}\n"
+                f"{t('settings_label_subscription', language)}: {subscription_status}"
             )

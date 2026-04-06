@@ -6,26 +6,38 @@ from html import escape
 
 from aiogram.types import BotCommand
 
+from src.utils.enums import Language
+from src.utils.i18n import button_text, button_variants, t
 
-BUTTON_ADD_PURCHASE = "Добавить купленный подарок"
-BUTTON_ADD_SALE = "Добавить проданный подарок"
+
+BUTTON_ADD_PURCHASE = button_text("add_purchase", Language.RU)
+BUTTON_ADD_SALE = button_text("add_sale", Language.RU)
 BUTTON_SYNC = BUTTON_ADD_PURCHASE
-BUTTON_DEALS = "Сделки"
-BUTTON_STATS = "Статистика"
-BUTTON_TON = "Курс TON"
-BUTTON_EXPORT = "Экспорт"
+BUTTON_DEALS = button_text("deals", Language.RU)
+BUTTON_STATS = button_text("stats", Language.RU)
+BUTTON_TON = button_text("ton", Language.RU)
+BUTTON_EXPORT = button_text("export", Language.RU)
 BUTTON_EXPORT_CSV = "Экспорт CSV"
 BUTTON_EXPORT_XLSX = "Экспорт XLSX"
 BUTTON_EXPORT_CUSTOM = "Конструктор CSV/XLSX"
-BUTTON_SUBSCRIPTION = "Подписка"
-BUTTON_SUBSCRIPTION_CREATE = "Оплатить подписку"
-BUTTON_SUBSCRIPTION_CHECK = "Проверить оплату"
-BUTTON_SETTINGS = "Настройки"
-BUTTON_NOTIFICATIONS = "Уведомления"
-BUTTON_AUTOSYNC = "Автосинхронизация"
-BUTTON_BACK = "Назад"
-BUTTON_BACK_TO_MENU = "В меню"
-BUTTON_CANCEL = "Отмена"
+BUTTON_SUBSCRIPTION = button_text("subscription", Language.RU)
+BUTTON_SUBSCRIPTION_CREATE = button_text("subscription_create", Language.RU)
+BUTTON_SUBSCRIPTION_CHECK = button_text("subscription_check", Language.RU)
+BUTTON_SUBSCRIPTION_BALANCE_PAY = button_text("subscription_balance_pay", Language.RU)
+BUTTON_BALANCE = button_text("balance", Language.RU)
+BUTTON_REFERRALS = button_text("referrals", Language.RU)
+BUTTON_GIFT_SUBSCRIPTION = button_text("gift_subscription", Language.RU)
+BUTTON_WITHDRAW = button_text("withdraw", Language.RU)
+BUTTON_SETTINGS = button_text("settings", Language.RU)
+BUTTON_NOTIFICATIONS = button_text("notifications", Language.RU)
+BUTTON_AUTOSYNC = button_text("autosync", Language.RU)
+BUTTON_LANGUAGE = button_text("language", Language.RU)
+BUTTON_BACK = button_text("back", Language.RU)
+BUTTON_BACK_TO_MENU = button_text("back_to_menu", Language.RU)
+BUTTON_CANCEL = button_text("cancel", Language.RU)
+BUTTON_LANG_RU = button_text("language_ru", Language.RU)
+BUTTON_LANG_EN = button_text("language_en", Language.RU)
+BUTTON_LANG_ZH = button_text("language_zh", Language.RU)
 
 BUTTON_RATE_TODAY = "Сегодня"
 BUTTON_RATE_DATE = "Выбрать дату"
@@ -84,7 +96,6 @@ BUTTON_EXPORT_OPTION_FIELDS_COMPACT = "Короткий отчет"
 BUTTON_EXPORT_OPTION_FIELDS_FINANCE = "Финансовый отчет"
 BUTTON_EXPORT_OPTION_FIELDS_TIMELINE = "Хронология"
 
-
 BUTTON_MARKETPLACE_PORTALS = "PORTALS"
 BUTTON_MARKETPLACE_FRAGMENT = "FRAGMENT"
 BUTTON_MARKETPLACE_GETGEMS = "GETGEMS"
@@ -93,24 +104,27 @@ BUTTON_MARKETPLACE_MARKET = "MARKET"
 BUTTON_MARKETPLACE_TELEGRAM = "TELEGRAM"
 
 
-def get_main_menu_buttons() -> list[list[str]]:
+def get_main_menu_buttons(language: Language | str | None = None) -> list[list[str]]:
     """Return button labels for the main reply keyboard."""
 
     return [
-        [BUTTON_ADD_PURCHASE],
-        [BUTTON_ADD_SALE],
-        [BUTTON_DEALS, BUTTON_STATS],
-        [BUTTON_TON, BUTTON_EXPORT],
-        [BUTTON_SUBSCRIPTION],
+        [button_text("add_purchase", language)],
+        [button_text("add_sale", language)],
+        [button_text("deals", language), button_text("stats", language)],
+        [button_text("ton", language), button_text("export", language)],
+        [button_text("subscription", language)],
+        [button_text("balance", language), button_text("referrals", language)],
+        [button_text("gift_subscription", language), button_text("withdraw", language)],
+        [button_text("settings", language)],
     ]
 
 
-def get_settings_menu_buttons() -> list[list[str]]:
+def get_settings_menu_buttons(language: Language | str | None = None) -> list[list[str]]:
     """Return button labels for the settings reply keyboard."""
 
     return [
-        [BUTTON_NOTIFICATIONS, BUTTON_AUTOSYNC],
-        [BUTTON_BACK],
+        [button_text("language", language)],
+        [button_text("back", language)],
     ]
 
 
@@ -213,29 +227,26 @@ def get_export_fields_buttons() -> list[list[str]]:
     ]
 
 
-def get_subscription_menu_buttons() -> list[list[str]]:
+def get_subscription_menu_buttons(language: Language | str | None = None) -> list[list[str]]:
     """Return buttons for the billing and subscription screen."""
 
     return [
-        [BUTTON_SUBSCRIPTION_CREATE, BUTTON_SUBSCRIPTION_CHECK],
-        [BUTTON_BACK_TO_MENU],
+        [button_text("subscription_create", language), button_text("subscription_check", language)],
+        [button_text("subscription_balance_pay", language)],
+        [button_text("back_to_menu", language)],
     ]
 
 
 def get_purchase_flow_buttons() -> list[list[str]]:
     """Return buttons for purchase capture flow."""
 
-    return [
-        [BUTTON_CANCEL, BUTTON_BACK_TO_MENU],
-    ]
+    return [[BUTTON_CANCEL, BUTTON_BACK_TO_MENU]]
 
 
 def get_sale_flow_buttons() -> list[list[str]]:
     """Return buttons for sale capture flow."""
 
-    return [
-        [BUTTON_CANCEL, BUTTON_BACK_TO_MENU],
-    ]
+    return [[BUTTON_CANCEL, BUTTON_BACK_TO_MENU]]
 
 
 def get_ton_rate_choice_buttons() -> list[list[str]]:
@@ -268,12 +279,54 @@ def get_marketplace_choice_buttons() -> list[list[str]]:
     ]
 
 
+def get_language_menu_buttons() -> list[list[str]]:
+    """Return buttons for language selection."""
+
+    return [
+        [BUTTON_LANG_RU, BUTTON_LANG_EN, BUTTON_LANG_ZH],
+        [BUTTON_BACK],
+    ]
+
+
+def get_main_menu_button_variants() -> set[str]:
+    """Return all language variants for top-level main menu buttons."""
+
+    semantic_keys = (
+        "add_purchase",
+        "add_sale",
+        "deals",
+        "stats",
+        "ton",
+        "export",
+        "subscription",
+        "balance",
+        "referrals",
+        "gift_subscription",
+        "withdraw",
+        "settings",
+        "notifications",
+        "autosync",
+        "language",
+        "subscription_create",
+        "subscription_check",
+        "subscription_balance_pay",
+        "back",
+        "back_to_menu",
+        "cancel",
+    )
+    variants: set[str] = set()
+    for key in semantic_keys:
+        variants.update(button_variants(key))
+    return variants
+
+
 def get_known_button_texts() -> set[str]:
     """Return a flat set of all known reply button labels."""
 
     groups = [
         get_main_menu_buttons(),
         get_settings_menu_buttons(),
+        get_language_menu_buttons(),
         get_export_menu_buttons(),
         get_export_builder_buttons(),
         get_export_format_buttons(),
@@ -290,7 +343,9 @@ def get_known_button_texts() -> set[str]:
         get_sale_fee_buttons(),
         get_marketplace_choice_buttons(),
     ]
-    return {button for group in groups for row in group for button in row}
+    known = {button for group in groups for row in group for button in row}
+    known.update(get_main_menu_button_variants())
+    return known
 
 
 def get_bot_commands() -> list[BotCommand]:
@@ -306,58 +361,38 @@ def get_bot_commands() -> list[BotCommand]:
         BotCommand(command="ton", description="Показать курс TON"),
         BotCommand(command="export", description="Экспорт CSV/XLSX"),
         BotCommand(command="pay", description="Подписка и оплата"),
+        BotCommand(command="balance", description="Баланс и рефералы"),
+        BotCommand(command="referrals", description="Реферальная ссылка"),
+        BotCommand(command="gift", description="Подарить подписку"),
+        BotCommand(command="withdraw", description="Вывод TON"),
         BotCommand(command="settings", description="Открыть настройки"),
     ]
 
 
-def build_welcome_text(first_name: str | None, is_new_user: bool) -> str:
-    """Build welcome text for the /start command."""
+def build_welcome_text(
+    first_name: str | None,
+    is_new_user: bool,
+    *,
+    language: Language | str | None = None,
+    subscription_price_ton: str = "3",
+) -> str:
+    """Build localized welcome text for the /start command."""
 
-    safe_name = escape(first_name or "друг")
-    title = "Регистрация завершена" if is_new_user else "С возвращением"
-    return (
-        f"<b>{title}, {safe_name}!</b>\n\n"
-        "Я помогаю вести учет Telegram-подарков: сохраняю покупки и продажи по уведомлениям маркетплейсов, "
-        "считаю статистику и готовлю CSV/XLSX-экспорт.\n\n"
-        "Как начать:\n"
-        "1. Оплати подписку через кнопку <b>Подписка</b> или команду /pay.\n"
-        "2. Нажми <b>Добавить купленный подарок</b> и перешли уведомление о покупке от маркетплейса.\n"
-        "3. Если в уведомлении нет цены, я сам попрошу ее и предложу сохранить курс TON/USD.\n"
-        "4. Когда подарок продастся, нажми <b>Добавить проданный подарок</b> и перешли уведомление о продаже.\n\n"
-        "Подписка стоит <b>3 TON</b> за каждые 30 дней доступа."
-    )
+    safe_name = escape(first_name or "friend")
+    key = "welcome_new" if is_new_user else "welcome_returning"
+    return t(key, language, first_name=safe_name, price_ton=subscription_price_ton)
 
 
-def build_help_text() -> str:
-    """Build help text for the /help command."""
+def build_help_text(*, language: Language | str | None = None) -> str:
+    """Build localized help text for the /help command."""
 
-    return (
-        "<b>Что умеет бот</b>\n"
-        "/start - регистрация и открытие главного меню\n"
-        "/help - показать эту справку\n"
-        "/sync - добавить купленный подарок\n"
-        "/sale - добавить проданный подарок\n"
-        "/deals - последние сделки\n"
-        "/stats - краткая статистика по сделкам\n"
-        "/ton - курс TON\n"
-        "/export - экспорт в CSV/XLSX с конструктором параметров\n"
-        "/pay - подписка и создание счета на оплату\n"
-        "/settings - пользовательские настройки\n\n"
-        "<b>Покупка</b>\n"
-        "Нажми <b>Добавить купленный подарок</b> и перешли уведомление о покупке от маркетплейса. "
-        "Я попробую сам определить название, номер подарка, цену и маркет. Если цены нет, спрошу ее отдельно.\n\n"
-        "<b>Продажа</b>\n"
-        "Нажми <b>Добавить проданный подарок</b> и перешли уведомление о продаже. "
-        "Я найду открытую покупку, при необходимости попрошу сумму продажи и комиссию, а затем закрою сделку.\n\n"
-        "<b>Подписка</b>\n"
-        "Пробного периода нет. Базовый тариф составляет <b>3 TON</b> за 30 дней доступа."
-    )
+    return t("help_text", language)
 
 
-def build_registration_required_text() -> str:
-    """Return a standard message for users not yet registered in the bot."""
+def build_registration_required_text(*, language: Language | str | None = None) -> str:
+    """Return a localized message for users not yet registered in the bot."""
 
-    return "Похоже, ты еще не зарегистрирован. Сначала запусти /start."
+    return t("registration_required", language)
 
 
 def build_feature_stub_text(feature_name: str) -> str:
@@ -365,6 +400,6 @@ def build_feature_stub_text(feature_name: str) -> str:
 
     return (
         f"<b>{feature_name}</b>\n\n"
-        "Этот раздел уже зарезервирован в архитектуре, но полная бизнес-логика "
-        "будет добавлена на следующем этапе."
+        "Этот раздел уже зарезервирован в архитектуре, "
+        "но полная бизнес-логика будет добавлена на следующем этапе."
     )

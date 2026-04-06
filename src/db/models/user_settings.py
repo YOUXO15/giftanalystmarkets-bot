@@ -9,7 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import Enum as SAEnum
 
 from src.db.base import Base, TimestampMixin
-from src.utils.enums import Currency
+from src.utils.enums import Currency, Language
 
 if TYPE_CHECKING:
     from src.db.models.user import User
@@ -38,5 +38,15 @@ class UserSettings(TimestampMixin, Base):
         nullable=False,
     )
     auto_sync_enabled: Mapped[bool] = mapped_column(default=False, nullable=False)
+    preferred_language: Mapped[Language] = mapped_column(
+        SAEnum(
+            Language,
+            name="user_language_enum",
+            native_enum=False,
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+        ),
+        default=Language.RU,
+        nullable=False,
+    )
 
     user: Mapped["User"] = relationship(back_populates="settings")

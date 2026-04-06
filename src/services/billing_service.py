@@ -19,6 +19,7 @@ from src.db.repositories.payment_invoice_repo import PaymentInvoiceRepository
 from src.db.repositories.subscription_repo import SubscriptionRepository
 from src.db.repositories.user_repo import UserRepository
 from src.integrations.crypto_pay_client import CryptoPayApiError, CryptoPayClient, CryptoPayInvoice
+from src.services.referral_service import ReferralService
 from src.utils.enums import BillingPlanType, Currency, PaymentInvoiceStatus, SubscriptionStatus
 from src.utils.helpers import build_registration_required_text
 
@@ -68,6 +69,7 @@ class BillingService:
         self._session_maker = session_maker
         self._settings = settings
         self._client = CryptoPayClient(settings) if settings.is_crypto_pay_configured else None
+        self._referral_service = ReferralService(session_maker, settings)
 
     async def build_subscription_overview(self, telegram_id: int) -> str:
         """Build the subscription status screen for the current user."""
@@ -269,6 +271,12 @@ class BillingService:
             ),
         )
 
+    async def pay_subscription_with_balance(self, telegram_id: int) -> BillingActionResult:
+        """Use internal referral balance to pay for one subscription period."""
+
+        result = await self._referral_service.pay_own_subscription_from_balance(telegram_id)
+        return BillingActionResult(success=result.success, message=result.message, reply_to_main_menu=result.success)
+
     @staticmethod
     def calculate_next_period(
         now: datetime,
@@ -418,6 +426,19 @@ class BillingService:
                         invoice=invoice,
                         paid_at=remote_invoice.paid_at or self._now(),
                     )
+                    reward = await self._referral_service.apply_reward_for_paid_invoice(
+                        session,
+                        paid_user_id=user_id,
+                        payment_invoice_id=invoice.id,
+                        invoice_amount_ton=Decimal(str(invoice.amount)),
+                    )
+                    if reward is not None and reward > Decimal("0"):
+                        logger.info(
+                            "Referral reward credited for user_id=%s invoice_id=%s reward=%s TON",
+                            user_id,
+                            invoice.id,
+                            format(reward, "f"),
+                        )
 
     async def _store_invoice(
         self,

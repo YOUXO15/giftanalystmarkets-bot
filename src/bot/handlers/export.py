@@ -25,10 +25,11 @@ from src.bot.message_cleanup import replace_tracked_document, replace_tracked_te
 from src.bot.subscription_guard import ensure_paid_access
 from src.config.settings import Settings
 from src.services.export_service import ExportFileResult, ExportQuery, ExportService
+from src.services.user_service import UserService
+from src.utils.enums import Language
 from src.utils.enums import ExportFormat
 from src.utils.helpers import (
     BUTTON_BACK_TO_MENU,
-    BUTTON_EXPORT,
     BUTTON_EXPORT_BACK_TO_EXPORT,
     BUTTON_EXPORT_BACK_TO_PARAMS,
     BUTTON_EXPORT_CSV,
@@ -77,6 +78,7 @@ from src.utils.helpers import (
     BUTTON_EXPORT_PARAM_STATUS,
     BUTTON_EXPORT_XLSX,
 )
+from src.utils.i18n import button_variants, t
 
 router = Router(name="export")
 
@@ -179,7 +181,7 @@ _EXPORT_BUILDER_STATE_BY_USER: dict[int, ExportBuilderState] = {}
 
 
 @router.message(Command("export"))
-@router.message(F.text == BUTTON_EXPORT)
+@router.message(F.text.in_(button_variants("export")))
 async def export_command(
     message: Message,
     session_maker: async_sessionmaker[AsyncSession],
@@ -192,6 +194,11 @@ async def export_command(
     if not await ensure_paid_access(message, session_maker, settings):
         return
 
+    user_service = UserService(session_maker)
+    language = await user_service.get_user_language(
+        message.from_user.id,
+        fallback_telegram_language=message.from_user.language_code,
+    )
     _EXPORT_BUILDER_STATE_BY_USER.pop(message.from_user.id, None)
 
     export_service = ExportService(session_maker, settings)
@@ -200,7 +207,7 @@ async def export_command(
         await replace_tracked_text(
             message,
             preview.message,
-            reply_markup=get_main_menu_keyboard(),
+            reply_markup=get_main_menu_keyboard(language),
         )
         return
 
@@ -276,15 +283,19 @@ async def export_back_to_export_menu(message: Message) -> None:
 
 
 @router.message(F.text == BUTTON_BACK_TO_MENU)
-async def export_back_to_main_menu(message: Message) -> None:
+async def export_back_to_main_menu(
+    message: Message,
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
     """Return from export flow to main menu."""
 
     if message.from_user is not None:
         _EXPORT_BUILDER_STATE_BY_USER.pop(message.from_user.id, None)
+    language = await _resolve_language_for_user(message, session_maker)
     await replace_tracked_text(
         message,
-        "Главное меню снова перед тобой.",
-        reply_markup=get_main_menu_keyboard(),
+        t("back_to_main_menu", language),
+        reply_markup=get_main_menu_keyboard(language),
     )
 
 
@@ -575,13 +586,14 @@ async def _send_export_file(
     if message.from_user is None:
         return
 
+    language = await _resolve_language_for_user(message, session_maker)
     export_service = ExportService(session_maker, settings)
     result = await export_service.export_deals_file(message.from_user.id, export_format, query=query)
     if not result.success or result.content is None or result.filename is None:
         await replace_tracked_text(
             message,
             result.message,
-            reply_markup=get_main_menu_keyboard(),
+            reply_markup=get_main_menu_keyboard(language),
         )
         return
 
@@ -589,7 +601,7 @@ async def _send_export_file(
         message,
         document=BufferedInputFile(result.content, filename=result.filename),
         caption=result.message,
-        reply_markup=get_main_menu_keyboard(),
+        reply_markup=get_main_menu_keyboard(language),
     )
 
 
@@ -604,6 +616,7 @@ async def _send_export_file_from_builder(
     if message.from_user is None:
         return
 
+    language = await _resolve_language_for_user(message, session_maker)
     export_service = ExportService(session_maker, settings)
     query = _copy_query(state.query)
     result = await export_service.export_deals_file(
@@ -624,7 +637,7 @@ async def _send_export_file_from_builder(
         message,
         document=BufferedInputFile(result.content, filename=result.filename),
         caption=result.message,
-        reply_markup=get_main_menu_keyboard(),
+        reply_markup=get_main_menu_keyboard(language),
     )
 
 
@@ -676,6 +689,22 @@ def _copy_query(query: ExportQuery) -> ExportQuery:
         days=query.days,
         fields=list(query.fields) if query.fields is not None else None,
         limit=query.limit,
+    )
+
+
+async def _resolve_language_for_user(
+    message: Message,
+    session_maker: async_sessionmaker[AsyncSession],
+) -> Language:
+    """Resolve preferred UI language for current user."""
+
+    if message.from_user is None:
+        return Language.RU
+
+    user_service = UserService(session_maker)
+    return await user_service.get_user_language(
+        message.from_user.id,
+        fallback_telegram_language=message.from_user.language_code,
     )
 
 

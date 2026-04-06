@@ -9,6 +9,7 @@ from html import escape, unescape
 import re
 from urllib.parse import unquote, urlparse, urlsplit, urlunsplit
 from uuid import uuid4
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -1005,14 +1006,21 @@ class TradeCaptureService:
         normalized = value.quantize(Decimal("0.00000001"), rounding=ROUND_HALF_UP).normalize()
         return format(normalized, "f")
 
-    @staticmethod
-    def _format_datetime(value: datetime | None) -> str:
-        """Format datetime for Telegram messages."""
+    def _format_datetime(self, value: datetime | None) -> str:
+        """Format datetime for Telegram messages in business timezone."""
 
         if value is None:
             return "—"
-        normalized = value.astimezone(timezone.utc) if value.tzinfo is not None else value
-        return normalized.strftime("%d.%m.%Y %H:%M UTC")
+        timezone_name = self._settings.business_timezone
+        try:
+            business_tz = ZoneInfo(timezone_name)
+        except ZoneInfoNotFoundError:
+            business_tz = timezone.utc
+            timezone_name = "UTC"
+
+        normalized = value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+        localized = normalized.astimezone(business_tz)
+        return localized.strftime(f"%d.%m.%Y %H:%M {timezone_name}")
 
     @staticmethod
     def _format_margin_percent(
