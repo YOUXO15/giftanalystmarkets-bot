@@ -60,7 +60,7 @@ class Settings(BaseSettings):
     subscription_period_days: int = Field(30, validation_alias="SUBSCRIPTION_PERIOD_DAYS")
     referral_base_percent: Decimal = Field(Decimal("10"), validation_alias="REFERRAL_BASE_PERCENT")
     referral_percent_after_level_1: Decimal = Field(
-        Decimal("12"),
+        Decimal("5"),
         validation_alias="REFERRAL_PERCENT_AFTER_LEVEL_1",
     )
     referral_percent_after_level_2: Decimal = Field(

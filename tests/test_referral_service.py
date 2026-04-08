@@ -13,7 +13,7 @@ def _build_service() -> ReferralService:
         subscription_period_days=30,
         subscription_monthly_price_ton=Decimal("3"),
         referral_base_percent=Decimal("10"),
-        referral_percent_after_level_1=Decimal("12"),
+        referral_percent_after_level_1=Decimal("5"),
         referral_percent_after_level_2=Decimal("13"),
         referral_percent_after_level_3=Decimal("15"),
         referral_level_1_threshold=3,
@@ -30,7 +30,7 @@ def test_referral_percent_progression() -> None:
 
     assert service._calculate_referral_percent(0) == Decimal("10")
     assert service._calculate_referral_percent(2) == Decimal("10")
-    assert service._calculate_referral_percent(3) == Decimal("12")
+    assert service._calculate_referral_percent(3) == Decimal("5")
     assert service._calculate_referral_percent(10) == Decimal("13")
     assert service._calculate_referral_percent(25) == Decimal("15")
 
