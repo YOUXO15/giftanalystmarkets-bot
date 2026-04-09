@@ -30,7 +30,8 @@ _PRICE_RE = re.compile(
     r"(?P<amount>\d+(?:[.,]\d{1,8})?)\s*(?P<currency>TON|USDT|USD|EUR|RUB)?",
     re.IGNORECASE,
 )
-_GIFT_NUMBER_RE = re.compile(r"#(?P<number>\d{2,})")
+_GIFT_NUMBER_BODY_RE = r"\d[\d\s\u00A0\u202F.,_-]{0,24}"
+_GIFT_NUMBER_RE = re.compile(rf"#(?P<number>{_GIFT_NUMBER_BODY_RE})")
 _GIFT_NAME_WITH_NUMBER_PATTERNS = (
     re.compile(
         r"(?P<name>[A-Za-zА-Яа-яЁё0-9][A-Za-zА-Яа-яЁё0-9\s'’._\-]{1,80}?)\s*#(?P<number>\d{2,})",
@@ -1074,7 +1075,7 @@ def _build_gift_reference(
     url_name, url_number = _extract_name_and_number_from_url(gift_url) if gift_url else (None, None)
 
     item_name = text_name or _extract_title_like_name(normalized_text) or url_name
-    gift_number = text_number or url_number
+    gift_number = _pick_best_gift_number(text_number, url_number)
     marketplace = _infer_marketplace(gift_url or "", f"{source_label or ''} {normalized_text}")
 
     if item_name is None and gift_number is None and gift_url is None:
@@ -1127,16 +1128,18 @@ def _parse_amount_by_patterns(
 def _extract_name_and_number(text: str) -> tuple[str | None, str | None]:
     """Extract gift name and number from free text."""
 
+    full_hash_match = _GIFT_NUMBER_RE.search(text)
+    full_hash_number = _normalize_gift_number(full_hash_match.group("number")) if full_hash_match is not None else None
+
     for pattern in _GIFT_NAME_WITH_NUMBER_PATTERNS:
         match = pattern.search(text)
         if match is None:
             continue
         name = _cleanup_item_name(match.group("name"))
-        number = match.group("number")
+        number = _pick_best_gift_number(match.group("number"), full_hash_number)
         return name, number
 
-    number_match = _GIFT_NUMBER_RE.search(text)
-    number = number_match.group("number") if number_match is not None else None
+    number = full_hash_number
     return None, number
 
 
@@ -1185,13 +1188,19 @@ def _extract_name_and_number_from_url(url: str) -> tuple[str | None, str | None]
         slug = slug.replace(".html", "")
         slug = slug.replace("%23", "#")
 
-        hash_match = re.search(r"(?P<name>.+?)#(?P<number>\d{2,})$", slug)
+        hash_match = re.search(rf"(?P<name>.+?)#(?P<number>{_GIFT_NUMBER_BODY_RE})$", slug)
         if hash_match is not None:
-            return _cleanup_item_name(hash_match.group("name")), hash_match.group("number")
+            return (
+                _cleanup_item_name(hash_match.group("name")),
+                _normalize_gift_number(hash_match.group("number")),
+            )
 
-        dash_match = re.search(r"(?P<name>.+?)[\-_](?P<number>\d{2,})$", slug)
+        dash_match = re.search(rf"(?P<name>.+?)[\-_](?P<number>{_GIFT_NUMBER_BODY_RE})$", slug)
         if dash_match is not None:
-            return _cleanup_item_name(dash_match.group("name")), dash_match.group("number")
+            return (
+                _cleanup_item_name(dash_match.group("name")),
+                _normalize_gift_number(dash_match.group("number")),
+            )
 
         clean_name = _cleanup_item_name(slug)
         if clean_name is not None:
@@ -1306,9 +1315,35 @@ def _extract_number_only(value: str | None) -> str | None:
 
     match = _GIFT_NUMBER_RE.search(value)
     if match is not None:
-        return match.group("number")
+        normalized = _normalize_gift_number(match.group("number"))
+        if normalized is not None:
+            return normalized
 
-    trailing_match = re.search(r"(\d{2,})$", value)
+    trailing_match = re.search(rf"({_GIFT_NUMBER_BODY_RE})$", value)
     if trailing_match is not None:
-        return trailing_match.group(1)
+        normalized = _normalize_gift_number(trailing_match.group(1))
+        if normalized is not None:
+            return normalized
     return None
+
+
+def _normalize_gift_number(raw_number: str | None) -> str | None:
+    """Normalize a gift number by removing separators and spaces."""
+
+    if raw_number is None:
+        return None
+
+    normalized = re.sub(r"\D+", "", raw_number)
+    if len(normalized) < 2:
+        return None
+    return normalized
+
+
+def _pick_best_gift_number(primary: str | None, fallback: str | None) -> str | None:
+    """Pick the most complete gift number from two candidates."""
+
+    primary_normalized = _normalize_gift_number(primary)
+    fallback_normalized = _normalize_gift_number(fallback)
+    if primary_normalized and fallback_normalized:
+        return primary_normalized if len(primary_normalized) >= len(fallback_normalized) else fallback_normalized
+    return primary_normalized or fallback_normalized

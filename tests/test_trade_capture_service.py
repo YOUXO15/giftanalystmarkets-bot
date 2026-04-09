@@ -99,6 +99,22 @@ def test_parse_sale_notification_extracts_amount_and_identity() -> None:
     assert payload.marketplace == "PORTALS"
 
 
+def test_parse_sale_notification_keeps_full_number_with_group_separator() -> None:
+    service = _build_service()
+
+    payload = service.parse_sale_notification(
+        "Your gift UFC Strike #23 789 has been sold\nYou received:23 TON",
+        source_label="telegram",
+    )
+
+    assert payload is not None
+    assert payload.item_name == "Your gift UFC Strike"
+    assert payload.gift_number == "23789"
+    assert payload.amount == Decimal("23")
+    assert payload.currency == Currency.TON
+    assert payload.marketplace == "TELEGRAM"
+
+
 def test_parse_sale_notification_accepts_received_line_without_sold_hint() -> None:
     service = _build_service()
 
@@ -113,6 +129,23 @@ def test_parse_sale_notification_accepts_received_line_without_sold_hint() -> No
     assert payload.amount == Decimal("57")
     assert payload.currency == Currency.TON
     assert payload.marketplace == "FRAGMENT"
+
+
+def test_parse_sale_notification_draft_prefers_longer_url_number() -> None:
+    service = _build_service()
+
+    payload = service.parse_sale_notification_draft(
+        "UFC Strike #23 has been sold\nYou received:23 TON",
+        urls=["https://t.me/nft/UFC-Strike-23789"],
+        source_label="telegram",
+    )
+
+    assert payload is not None
+    assert payload.item_name == "UFC Strike"
+    assert payload.gift_number == "23789"
+    assert payload.amount == Decimal("23")
+    assert payload.currency == Currency.TON
+    assert payload.marketplace == "TELEGRAM"
 
 
 def test_parse_sale_notification_draft_allows_missing_amount() -> None:
