@@ -49,6 +49,7 @@ class Settings(BaseSettings):
     crypto_pay_api_token: SecretStr | None = Field(None, validation_alias="CRYPTO_PAY_API_TOKEN")
     crypto_pay_asset: Currency = Field(Currency.TON, validation_alias="CRYPTO_PAY_ASSET")
     crypto_pay_invoice_expires_in: int = Field(3600, validation_alias="CRYPTO_PAY_INVOICE_EXPIRES_IN")
+    free_access_mode: bool = Field(False, validation_alias="FREE_ACCESS_MODE")
     subscription_intro_price_ton: Decimal = Field(
         Decimal("3"),
         validation_alias="SUBSCRIPTION_INTRO_PRICE_TON",

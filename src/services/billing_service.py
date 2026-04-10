@@ -108,6 +108,13 @@ class BillingService:
         context = await self._load_context_by_telegram_id(telegram_id)
         if context is None:
             return BillingActionResult(False, build_registration_required_text())
+        if self._is_free_access_mode():
+            quote = self._build_quote(context.subscription)
+            return BillingActionResult(
+                True,
+                self._build_subscription_overview_text(context, quote),
+                reply_to_main_menu=True,
+            )
 
         if self._is_subscription_active(context.subscription):
             quote = self._build_quote(context.subscription)
@@ -194,6 +201,13 @@ class BillingService:
         context = await self._load_context_by_telegram_id(telegram_id)
         if context is None:
             return BillingActionResult(False, build_registration_required_text())
+        if self._is_free_access_mode():
+            quote = self._build_quote(context.subscription)
+            return BillingActionResult(
+                True,
+                self._build_subscription_overview_text(context, quote),
+                reply_to_main_menu=True,
+            )
 
         if self._is_subscription_active(context.subscription):
             quote = self._build_quote(context.subscription)
@@ -293,6 +307,14 @@ class BillingService:
 
     def _build_quote(self, subscription: UserSubscription) -> SubscriptionQuote:
         """Return the current monthly price for a user."""
+
+        if self._is_free_access_mode():
+            return SubscriptionQuote(
+                amount=Decimal("0"),
+                asset=self._settings.crypto_pay_asset,
+                plan_type=BillingPlanType.MONTHLY,
+                title="Бесплатный доступ (режим проверки)",
+            )
 
         return SubscriptionQuote(
             amount=self._settings.subscription_monthly_price_ton,
@@ -565,6 +587,15 @@ class BillingService:
             ]
         )
 
+        if self._is_free_access_mode():
+            lines.extend(
+                [
+                    "",
+                    "<b>Режим проверки включён</b>",
+                    "Доступ к функциям открыт бесплатно, оплата временно не требуется.",
+                ]
+            )
+
         if latest_invoice is not None:
             lines.extend(
                 [
@@ -734,4 +765,9 @@ class BillingService:
         """Return the current UTC timestamp."""
 
         return datetime.now(timezone.utc)
+
+    def _is_free_access_mode(self) -> bool:
+        """Return whether global free access mode is enabled."""
+
+        return bool(getattr(self._settings, "free_access_mode", False))
 

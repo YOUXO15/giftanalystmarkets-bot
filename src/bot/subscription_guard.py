@@ -21,6 +21,8 @@ async def ensure_paid_access(
 
     if message.from_user is None:
         return False
+    if settings.free_access_mode:
+        return True
 
     billing_service = BillingService(session_maker, settings)
     access = await billing_service.ensure_analytics_access(message.from_user.id)
