@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     log_level: str = Field("INFO", validation_alias="LOG_LEVEL")
     bot_username: str = Field("", validation_alias="BOT_USERNAME")
     bot_token: SecretStr = Field(..., validation_alias="BOT_TOKEN")
+    start_notify_telegram_id: int | None = Field(1200208898, validation_alias="START_NOTIFY_TELEGRAM_ID")
     bot_polling_timeout: int = Field(30, validation_alias="BOT_POLLING_TIMEOUT")
     database_url: str = Field(..., validation_alias="DATABASE_URL")
     database_echo: bool = Field(False, validation_alias="DATABASE_ECHO")

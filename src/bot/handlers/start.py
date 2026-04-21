@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+import logging
+from datetime import timezone
+from html import escape
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
 from aiogram import Router
 from aiogram.filters import CommandStart
 from aiogram.types import Message
@@ -15,6 +20,7 @@ from src.services.user_service import UserService
 from src.utils.helpers import build_welcome_text
 
 router = Router(name="start")
+logger = logging.getLogger(__name__)
 
 
 @router.message(CommandStart())
@@ -52,6 +58,7 @@ async def start_command(
         ),
         reply_markup=get_main_menu_keyboard(registration.settings.preferred_language),
     )
+    await _notify_start_to_owner(message, settings)
 
 
 def _extract_start_payload(message_text: str | None) -> str | None:
@@ -63,3 +70,35 @@ def _extract_start_payload(message_text: str | None) -> str | None:
     if len(parts) < 2:
         return None
     return parts[1].strip()
+
+
+async def _notify_start_to_owner(message: Message, settings: Settings) -> None:
+    """Send /start audit notification to the configured owner Telegram ID."""
+
+    owner_id = settings.start_notify_telegram_id
+    user = message.from_user
+    if owner_id is None or user is None or user.id == owner_id:
+        return
+
+    try:
+        try:
+            tz = ZoneInfo(settings.business_timezone)
+        except ZoneInfoNotFoundError:
+            logger.warning(
+                "Unknown BUSINESS_TIMEZONE '%s'. Falling back to UTC for /start notification.",
+                settings.business_timezone,
+            )
+            tz = timezone.utc
+
+        pressed_at = message.date.astimezone(tz)
+        username = f"@{user.username}" if user.username else "без username"
+        notify_text = (
+            "Новый /start в боте\n\n"
+            f"Username: {escape(username)}\n"
+            f"ID: <code>{user.id}</code>\n"
+            f"Имя: {escape(user.full_name)}\n"
+            f"Дата/время: {escape(pressed_at.strftime('%d.%m.%Y %H:%M:%S %Z'))}"
+        )
+        await message.bot.send_message(owner_id, notify_text, parse_mode="HTML")
+    except Exception:
+        logger.exception("Failed to send /start notification to owner_id=%s", owner_id)
