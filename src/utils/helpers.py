@@ -117,8 +117,6 @@ def get_main_menu_buttons(language: Language | str | None = None) -> list[list[s
         [button_text("gift_subscription", language), button_text("withdraw", language)],
         [button_text("settings", language)],
         [button_text("privacy_policy", language), button_text("terms_of_service", language)],
-        BotCommand(command="privacy", description="Privacy policy"),
-        BotCommand(command="terms", description="Terms of service"),
     ]
 
 
@@ -371,6 +369,29 @@ def get_bot_commands() -> list[BotCommand]:
         BotCommand(command="gift", description="Подарить подписку"),
         BotCommand(command="withdraw", description="Вывод TON"),
         BotCommand(command="settings", description="Открыть настройки"),
+    ]
+
+
+def get_bot_commands() -> list[BotCommand]:
+    """Return Telegram command definitions."""
+
+    return [
+        BotCommand(command="start", description="Start and open menu"),
+        BotCommand(command="help", description="Show help"),
+        BotCommand(command="sync", description="Add purchased gift"),
+        BotCommand(command="sale", description="Add sold gift"),
+        BotCommand(command="deals", description="Show deals"),
+        BotCommand(command="stats", description="Show stats"),
+        BotCommand(command="ton", description="TON rate"),
+        BotCommand(command="export", description="Export CSV/XLSX"),
+        BotCommand(command="pay", description="Subscription"),
+        BotCommand(command="balance", description="Balance"),
+        BotCommand(command="referrals", description="Referral link"),
+        BotCommand(command="gift", description="Gift subscription"),
+        BotCommand(command="withdraw", description="Withdraw TON"),
+        BotCommand(command="settings", description="User settings"),
+        BotCommand(command="privacy", description="Privacy policy"),
+        BotCommand(command="terms", description="Terms of service"),
     ]
 
 
