@@ -116,6 +116,7 @@ def get_main_menu_buttons(language: Language | str | None = None) -> list[list[s
         [button_text("balance", language), button_text("referrals", language)],
         [button_text("gift_subscription", language), button_text("withdraw", language)],
         [button_text("settings", language)],
+        [button_text("privacy_policy", language), button_text("terms_of_service", language)],
     ]
 
 
@@ -304,6 +305,8 @@ def get_main_menu_button_variants() -> set[str]:
         "gift_subscription",
         "withdraw",
         "settings",
+        "privacy_policy",
+        "terms_of_service",
         "notifications",
         "autosync",
         "language",

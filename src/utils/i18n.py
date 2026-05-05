@@ -153,7 +153,9 @@ _TEXTS: dict[str, dict[Language, str]] = {
             "/referrals - \u0440\u0435\u0444\u0435\u0440\u0430\u043b\u044c\u043d\u0430\u044f \u0441\u0441\u044b\u043b\u043a\u0430\n"
             "/gift - \u043f\u043e\u0434\u0430\u0440\u0438\u0442\u044c \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0443\n"
             "/withdraw - \u0437\u0430\u043f\u0440\u043e\u0441 \u043d\u0430 \u0432\u044b\u0432\u043e\u0434\n"
-            "/settings - \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438"
+            "/settings - \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438\n"
+            "/privacy - \u043f\u043e\u043b\u0438\u0442\u0438\u043a\u0430 \u043a\u043e\u043d\u0444\u0438\u0434\u0435\u043d\u0446\u0438\u0430\u043b\u044c\u043d\u043e\u0441\u0442\u0438\n"
+            "/terms - \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044c\u0441\u043a\u043e\u0435 \u0441\u043e\u0433\u043b\u0430\u0448\u0435\u043d\u0438\u0435"
         ),
         Language.EN: (
             "<b>Bot commands</b>\n"
@@ -170,7 +172,9 @@ _TEXTS: dict[str, dict[Language, str]] = {
             "/referrals - referral link\n"
             "/gift - gift subscription\n"
             "/withdraw - withdrawal request\n"
-            "/settings - user settings"
+            "/settings - user settings\n"
+            "/privacy - privacy policy\n"
+            "/terms - terms of service"
         ),
         Language.ZH: (
             "<b>\u673a\u5668\u4eba\u529f\u80fd</b>\n"
@@ -187,7 +191,28 @@ _TEXTS: dict[str, dict[Language, str]] = {
             "/referrals - \u63a8\u8350\u94fe\u63a5\n"
             "/gift - \u8d60\u9001\u8ba2\u9605\n"
             "/withdraw - \u63d0\u73b0\u7533\u8bf7\n"
-            "/settings - \u7528\u6237\u8bbe\u7f6e"
+            "/settings - \u7528\u6237\u8bbe\u7f6e\n"
+            "/privacy - \u9690\u79c1\u653f\u7b56\n"
+            "/terms - \u7528\u6237\u534f\u8bae"
+        ),
+    },
+    "legal_documents_text": {
+        Language.RU: (
+            "<b>\u042e\u0440\u0438\u0434\u0438\u0447\u0435\u0441\u043a\u0438\u0435 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u044b</b>\n\n"
+            "\u041f\u043e\u043b\u0438\u0442\u0438\u043a\u0430 \u043a\u043e\u043d\u0444\u0438\u0434\u0435\u043d\u0446\u0438\u0430\u043b\u044c\u043d\u043e\u0441\u0442\u0438: "
+            '<a href="{privacy_url}">\u041e\u0442\u043a\u0440\u044b\u0442\u044c</a>\n'
+            "\u041f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044c\u0441\u043a\u043e\u0435 \u0441\u043e\u0433\u043b\u0430\u0448\u0435\u043d\u0438\u0435: "
+            '<a href="{terms_url}">\u041e\u0442\u043a\u0440\u044b\u0442\u044c</a>'
+        ),
+        Language.EN: (
+            "<b>Legal Documents</b>\n\n"
+            'Privacy Policy: <a href="{privacy_url}">Open</a>\n'
+            'Terms of Service: <a href="{terms_url}">Open</a>'
+        ),
+        Language.ZH: (
+            "<b>\u6cd5\u5f8b\u6587\u6863</b>\n\n"
+            '\u9690\u79c1\u653f\u7b56: <a href="{privacy_url}">\u6253\u5f00</a>\n'
+            '\u7528\u6237\u534f\u8bae: <a href="{terms_url}">\u6253\u5f00</a>'
         ),
     },
 }
@@ -253,6 +278,16 @@ _BUTTONS: dict[str, dict[Language, str]] = {
         Language.RU: "\u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438",
         Language.EN: "Settings",
         Language.ZH: "\u8bbe\u7f6e",
+    },
+    "privacy_policy": {
+        Language.RU: "\u041f\u043e\u043b\u0438\u0442\u0438\u043a\u0430 \u043a\u043e\u043d\u0444\u0438\u0434\u0435\u043d\u0446\u0438\u0430\u043b\u044c\u043d\u043e\u0441\u0442\u0438",
+        Language.EN: "Privacy Policy",
+        Language.ZH: "\u9690\u79c1\u653f\u7b56",
+    },
+    "terms_of_service": {
+        Language.RU: "\u041f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044c\u0441\u043a\u043e\u0435 \u0441\u043e\u0433\u043b\u0430\u0448\u0435\u043d\u0438\u0435",
+        Language.EN: "Terms of Service",
+        Language.ZH: "\u7528\u6237\u534f\u8bae",
     },
     "notifications": {
         Language.RU: "\u0423\u0432\u0435\u0434\u043e\u043c\u043b\u0435\u043d\u0438\u044f",

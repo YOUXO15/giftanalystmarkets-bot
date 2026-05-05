@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from aiogram import Router
 
-from src.bot.handlers import billing, deals, export, help, referral, settings, start, stats, sync, ton
+from src.bot.handlers import billing, deals, export, help, legal, referral, settings, start, stats, sync, ton
 
 router = Router(name="root")
 router.include_router(start.router)
 router.include_router(help.router)
+router.include_router(legal.router)
 router.include_router(billing.router)
 router.include_router(referral.router)
 router.include_router(sync.router)

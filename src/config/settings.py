@@ -22,6 +22,14 @@ class Settings(BaseSettings):
     app_name: str = "GiftAnalystMarkets"
     app_env: str = Field("development", validation_alias="APP_ENV")
     log_level: str = Field("INFO", validation_alias="LOG_LEVEL")
+    privacy_policy_url: str = Field(
+        "https://telegra.ph/Politika-konfidencialnosti-04-01-26",
+        validation_alias="PRIVACY_POLICY_URL",
+    )
+    terms_of_service_url: str = Field(
+        "https://telegra.ph/Polzovatelskoe-soglashenie-04-01-19",
+        validation_alias="TERMS_OF_SERVICE_URL",
+    )
     bot_username: str = Field("", validation_alias="BOT_USERNAME")
     bot_token: SecretStr = Field(..., validation_alias="BOT_TOKEN")
     start_notify_telegram_id: int | None = Field(1200208898, validation_alias="START_NOTIFY_TELEGRAM_ID")
