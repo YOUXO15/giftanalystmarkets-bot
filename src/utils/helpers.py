@@ -117,6 +117,8 @@ def get_main_menu_buttons(language: Language | str | None = None) -> list[list[s
         [button_text("gift_subscription", language), button_text("withdraw", language)],
         [button_text("settings", language)],
         [button_text("privacy_policy", language), button_text("terms_of_service", language)],
+        BotCommand(command="privacy", description="Privacy policy"),
+        BotCommand(command="terms", description="Terms of service"),
     ]
 
 
